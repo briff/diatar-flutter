@@ -736,6 +736,7 @@ class DiatarMainController extends ChangeNotifier {
 
   void toggleControlPhotoView() {
     _showPhotoInControl = !_showPhotoInControl;
+    unawaited(_settingsStore.saveShowPhotoInControl(_showPhotoInControl));
     notifyListeners();
   }
 
@@ -1077,6 +1078,7 @@ class DiatarMainController extends ChangeNotifier {
   Future<void> init() async {
     settings = await _settingsStore.load();
     _picPlcConfiguration = await _settingsStore.loadPicPlcConfiguration();
+    _showPhotoInControl = await _settingsStore.loadShowPhotoInControl();
     await _updateSystemShutdownExitCommand();
     unawaited(_runExternalCommand(settings.externalCommandOnStart));
     _transpositions = await _settingsStore.loadTranspositions();

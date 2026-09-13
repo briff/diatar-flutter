@@ -78,6 +78,16 @@ void main() {
     expect(reloaded.landscapeControlsRatio, 0.42);
   });
 
+  test('persists control photo view state round-trip', () async {
+    SharedPreferences.setMockInitialValues(<String, Object>{});
+    final SettingsStore store = SettingsStore();
+
+    expect(await store.loadShowPhotoInControl(), isFalse);
+    await store.saveShowPhotoInControl(true);
+
+    expect(await store.loadShowPhotoInControl(), isTrue);
+  });
+
   test('persists all eight PICPLC button assignments', () async {
     SharedPreferences.setMockInitialValues(<String, Object>{});
     const PicPlcConfiguration configuration = PicPlcConfiguration(

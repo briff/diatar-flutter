@@ -86,6 +86,7 @@ class SettingsStore {
   static const String _kPicPlcPort = 'PicPlcPort';
   static const String _kPicPlcButtonActions = 'PicPlcButtonActions';
   static const String _kPicPlcLedActions = 'PicPlcLedActions';
+  static const String _kShowPhotoInControl = 'ShowPhotoInControl';
 
   static const Map<String, String> _defaultDesktopActionHotkeys =
       <String, String>{
@@ -147,6 +148,16 @@ class SettingsStore {
   Future<void> saveLastVersePerBook(Map<String, int> map) async {
     final SharedPreferences prefs = await SharedPreferences.getInstance();
     await prefs.setString(_kLastVersePerBook, jsonEncode(map));
+  }
+
+  Future<bool> loadShowPhotoInControl() async {
+    final SharedPreferences prefs = await SharedPreferences.getInstance();
+    return prefs.getBool(_kShowPhotoInControl) ?? false;
+  }
+
+  Future<void> saveShowPhotoInControl(bool value) async {
+    final SharedPreferences prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(_kShowPhotoInControl, value);
   }
 
   Future<bool> hasSeenOnboarding() async {
