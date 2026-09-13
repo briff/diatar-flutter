@@ -266,6 +266,50 @@ void main() {
       },
     );
 
+    test(
+      'keeps an unnamed empty set available after editing and removal',
+      () async {
+        final DiatarMainController controller = DiatarMainController();
+
+        await controller.applyCustomOrder(const <CustomOrderEntry>[
+          CustomOrderEntry(
+            fileName: '__custom_text__',
+            songIndex: -1,
+            verseIndex: 0,
+            label: '[Text] Test',
+            customTextTitle: 'Test',
+            customTextBody: 'Text',
+            customType: 'text',
+          ),
+        ], activate: true);
+        await controller.createCustomOrderSet('Második diasor');
+
+        expect(controller.customOrderSets, hasLength(2));
+        expect(controller.customOrderSets.first.entries, hasLength(1));
+
+        await controller.removeCustomOrderSet(1);
+        await controller.removeCustomOrderSet(0);
+
+        expect(controller.customOrderSets, hasLength(1));
+        expect(controller.activeCustomOrderSetIndex, 0);
+        expect(controller.customOrderSets.single.name, isEmpty);
+        expect(controller.customOrderSets.single.entries, isEmpty);
+        expect(controller.customOrderActive, isFalse);
+      },
+    );
+
+    test('allows toggling the only unnamed set', () async {
+      final DiatarMainController controller = DiatarMainController();
+
+      await controller.applyCustomOrder(
+        const <CustomOrderEntry>[],
+        activate: true,
+      );
+      await controller.toggleCustomOrderSetEnabled(0);
+
+      expect(controller.customOrderSets.single.enabled, isFalse);
+    });
+
     test('tracks unsaved changes to a custom order set', () async {
       final DiatarMainController controller = DiatarMainController();
       final Directory directory = await Directory.systemTemp.createTemp(

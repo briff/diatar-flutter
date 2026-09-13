@@ -26,6 +26,11 @@ import 'custom_order_editor_sheet.dart';
 import 'merge_indicator.dart';
 import 'song_search_sheet.dart';
 
+String _customOrderSetDisplayName(CustomOrderSet set, AppLocalizations l10n) {
+  final String name = set.displayName;
+  return name.isEmpty ? l10n.customOrderUnnamedFileName : name;
+}
+
 class _BookDropdownEntry {
   const _BookDropdownEntry.header(this.group) : bookIndex = null, title = null;
 
@@ -3901,6 +3906,7 @@ class _BookDropdown extends StatelessWidget {
     final ThemeData theme = Theme.of(context);
     final bool hasDia =
         controller.hasImportedCustomOrderDia &&
+        controller.customOrderSets.isEmpty &&
         controller.customOrderSets
             .where((CustomOrderSet s) => s.enabled)
             .isEmpty;
@@ -3972,7 +3978,7 @@ class _BookDropdown extends StatelessWidget {
                         children: <Widget>[
                           Expanded(
                             child: Text(
-                              set.displayName,
+                              _customOrderSetDisplayName(set, context.l10n),
                               overflow: TextOverflow.ellipsis,
                               maxLines: 1,
                             ),
@@ -4053,7 +4059,7 @@ class _BookDropdown extends StatelessWidget {
                     return Align(
                       alignment: Alignment.centerLeft,
                       child: Text(
-                        set.displayName,
+                        _customOrderSetDisplayName(set, context.l10n),
                         overflow: TextOverflow.ellipsis,
                         maxLines: 1,
                       ),
@@ -4518,7 +4524,7 @@ class _CustomOrderSetSelector extends StatelessWidget {
         return DropdownMenuItem<String>(
           value: set.id,
           child: Text(
-            set.displayName,
+            _customOrderSetDisplayName(set, context.l10n),
             overflow: TextOverflow.ellipsis,
             maxLines: 1,
           ),

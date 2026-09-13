@@ -44,7 +44,7 @@ class CustomOrderSet {
     if (named.isNotEmpty) {
       return named;
     }
-    return 'Diasor';
+    return '';
   }
 
   CustomOrderSet copyWith({

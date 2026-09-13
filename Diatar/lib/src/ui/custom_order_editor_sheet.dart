@@ -42,6 +42,11 @@ class CustomOrderEditorPanel extends StatefulWidget {
   State<CustomOrderEditorPanel> createState() => _CustomOrderEditorPanelState();
 }
 
+String _customOrderSetDisplayName(CustomOrderSet set, AppLocalizations l10n) {
+  final String name = set.displayName;
+  return name.isEmpty ? l10n.customOrderUnnamedFileName : name;
+}
+
 class _CustomOrderEditorPanelState extends State<CustomOrderEditorPanel> {
   static const MethodChannel _androidDiaSaveChannel = MethodChannel(
     'diatar.eu/dia_save',
@@ -476,12 +481,15 @@ class _CustomOrderEditorPanelState extends State<CustomOrderEditorPanel> {
                 activeSetIndex < controller.customOrderSets.length
             ? controller.customOrderSets[activeSetIndex]
             : null;
+        final String activeSetDisplayName = activeSet == null
+            ? l10n.customOrderUnnamedFileName
+            : _customOrderSetDisplayName(activeSet, l10n);
         final String editorTitle = activeSet == null
             ? l10n.customOrderEditTitle
             : l10n.customOrderEditTitleWithName(
                 activeSet.isModified
-                    ? l10n.customOrderModifiedName(activeSet.displayName)
-                    : activeSet.displayName,
+                    ? l10n.customOrderModifiedName(activeSetDisplayName)
+                    : activeSetDisplayName,
               );
         return Material(
           color: widget.embedded
@@ -634,9 +642,9 @@ class _CustomOrderEditorPanelState extends State<CustomOrderEditorPanel> {
                                 child: Text(
                                   set.isModified
                                       ? l10n.customOrderModifiedName(
-                                          set.displayName,
+                                          _customOrderSetDisplayName(set, l10n),
                                         )
-                                      : set.displayName,
+                                      : _customOrderSetDisplayName(set, l10n),
                                   overflow: TextOverflow.ellipsis,
                                   maxLines: 1,
                                   style: set.enabled
@@ -1782,10 +1790,10 @@ class _CustomOrderEditorPanelState extends State<CustomOrderEditorPanel> {
       bool nativeSaveDialogAvailable = true;
       final String fallbackBaseName = controller.customOrderLooksLikeZsolozsma
           ? l10n.zsolozsmaTooltip
-          : l10n.customOrderSuggestedFileName;
+          : l10n.customOrderUnnamedFileName;
       final String defaultBaseName = _normalizeDiaBaseName(
         controller.suggestedCustomOrderBaseName ?? fallbackBaseName,
-        fallback: 'sorrend',
+        fallback: l10n.customOrderUnnamedFileName,
       );
       final String defaultFileName = '$defaultBaseName.dia';
       final String configuredDir = controller.settings.diaExportPath.trim();

@@ -327,6 +327,22 @@ class DiatarMainController extends ChangeNotifier {
     return 'set_${DateTime.now().microsecondsSinceEpoch}_$_customOrderSetIdCounter';
   }
 
+  CustomOrderSet _newUnnamedCustomOrderSet() {
+    return CustomOrderSet(
+      id: _nextCustomOrderSetId(),
+      name: '',
+      entries: const <CustomOrderEntry>[],
+    );
+  }
+
+  void _ensureCustomOrderSet() {
+    if (_customOrderSets.isNotEmpty) {
+      return;
+    }
+    _customOrderSets = <CustomOrderSet>[_newUnnamedCustomOrderSet()];
+    _activeOrderSetIndex = 0;
+  }
+
   String? _normalizeLoadedCustomOrderBaseName(
     String? baseName,
     String? sourceType,
@@ -415,7 +431,7 @@ class DiatarMainController extends ChangeNotifier {
         _customOrderSets = <CustomOrderSet>[
           CustomOrderSet(
             id: _nextCustomOrderSetId(),
-            name: _lastImportedCustomOrderBaseName ?? 'Diasor',
+            name: _lastImportedCustomOrderBaseName ?? '',
             entries: List<CustomOrderEntry>.from(_customOrder),
             enabled: true,
             baseName: _lastImportedCustomOrderBaseName,
@@ -427,6 +443,7 @@ class DiatarMainController extends ChangeNotifier {
         _customOrderCursor = _customOrder.isEmpty ? -1 : 0;
       }
     }
+    _ensureCustomOrderSet();
   }
 
   /// A jelenleg aktív diasor munkapéldányának (_customOrder) és a hozzá
@@ -585,33 +602,17 @@ class DiatarMainController extends ChangeNotifier {
 
   /// Be-/kikapcsolja a megadott diasort a betöltöttek közül.
   /// A kikapcsolt diasor nem lesz elérhető a nézetekben, de megmarad.
-  /// Az utolsó engedélyezett diasor nem kapcsolható ki, és ha az aktív
-  /// diasort kapcsoljuk ki, az aktív kiválasztás átvált egy másik
-  /// engedélyezett diasorra.
   Future<void> toggleCustomOrderSetEnabled(int index) async {
     if (index < 0 || index >= _customOrderSets.length) {
       return;
     }
     final bool currentlyEnabled = _customOrderSets[index].enabled;
-    if (currentlyEnabled) {
-      final int enabledCount = _customOrderSets
-          .where((CustomOrderSet s) => s.enabled)
-          .length;
-      if (enabledCount <= 1) {
-        return;
-      }
-    }
     _customOrderSets[index] = _customOrderSets[index].copyWith(
       enabled: !currentlyEnabled,
     );
-    if (currentlyEnabled && index == _activeOrderSetIndex) {
-      final int nextActive = _customOrderSets.indexWhere(
-        (CustomOrderSet s) => s.enabled,
-      );
-      if (nextActive >= 0) {
-        await _switchActiveSet(nextActive);
-        return;
-      }
+    if (index == _activeOrderSetIndex) {
+      customOrderActive = !currentlyEnabled && _customOrder.isNotEmpty;
+      _diaVirtualBookSelected = customOrderActive;
     }
     await _persistAllSets();
     notifyListeners();
@@ -625,7 +626,7 @@ class DiatarMainController extends ChangeNotifier {
     final bool wasActive = index == _activeOrderSetIndex;
     _customOrderSets.removeAt(index);
     if (_customOrderSets.isEmpty) {
-      _activeOrderSetIndex = -1;
+      _ensureCustomOrderSet();
       _customOrder = const <CustomOrderEntry>[];
       customOrderActive = false;
       _diaVirtualBookSelected = false;
@@ -2710,6 +2711,7 @@ class DiatarMainController extends ChangeNotifier {
     bool syncProjection = true,
     bool markModified = true,
   }) async {
+    _ensureCustomOrderSet();
     final int previousCursor = _customOrderCursor;
     final CustomOrderEntry? previousEntry =
         previousCursor >= 0 && previousCursor < _customOrder.length
@@ -3652,7 +3654,7 @@ class DiatarMainController extends ChangeNotifier {
       _persistActiveSetToSets();
       final CustomOrderSet newSet = CustomOrderSet(
         id: _nextCustomOrderSetId(),
-        name: baseName ?? 'Diasor',
+        name: baseName ?? '',
         entries: imported.map(normalizeEntry).toList(),
         enabled: true,
         baseName: baseName,
