@@ -4,6 +4,7 @@ import 'dart:io';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 class ExternalCommandService {
   const ExternalCommandService();
@@ -16,7 +17,8 @@ class ExternalCommandService {
       !kIsWeb &&
       (defaultTargetPlatform == TargetPlatform.windows ||
           defaultTargetPlatform == TargetPlatform.linux ||
-          defaultTargetPlatform == TargetPlatform.android);
+          defaultTargetPlatform == TargetPlatform.android ||
+          defaultTargetPlatform == TargetPlatform.iOS);
 
   Future<void> run(String command) async {
     if (!isSupported || command.trim().isEmpty) {
@@ -26,6 +28,10 @@ class ExternalCommandService {
       await _androidChannel.invokeMethod<void>('run', <String, String>{
         'command': command.trim(),
       });
+      return;
+    }
+    if (defaultTargetPlatform == TargetPlatform.iOS) {
+      await _launchIosUrl(command.trim());
       return;
     }
     await Process.start(
@@ -41,6 +47,10 @@ class ExternalCommandService {
       await _androidChannel.invokeMethod<void>('run', <String, String>{
         'command': command.trim(),
       });
+      return const ExternalCommandTestResult(exitCode: null, errorOutput: '');
+    }
+    if (defaultTargetPlatform == TargetPlatform.iOS) {
+      await _launchIosUrl(command.trim());
       return const ExternalCommandTestResult(exitCode: null, errorOutput: '');
     }
     final Process process = await Process.start(
@@ -61,6 +71,25 @@ class ExternalCommandService {
       errorOutput: exitCode == null ? '' : await errorOutput,
     );
   }
+
+  Future<void> _launchIosUrl(String command) async {
+    final Uri? uri = Uri.tryParse(command);
+    if (uri == null || !uri.hasScheme) {
+      throw ExternalCommandException('The URL must include a scheme.');
+    }
+    if (!await launchUrl(uri, mode: LaunchMode.externalApplication)) {
+      throw ExternalCommandException('Could not open URL: $command');
+    }
+  }
+}
+
+class ExternalCommandException implements Exception {
+  const ExternalCommandException(this.message);
+
+  final String message;
+
+  @override
+  String toString() => message;
 }
 
 class ExternalCommandTestResult {

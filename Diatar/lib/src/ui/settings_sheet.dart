@@ -419,7 +419,10 @@ class _DiatarSettingsSheetState extends State<DiatarSettingsSheet> {
         !kIsWeb && _matches(query, 'helyi halozat tcp ip port');
     final bool showWol =
         !kIsWeb &&
-        _matches(query, 'wake on lan wol ebreszto kapcsolat mac broadcast port');
+        _matches(
+          query,
+          'wake on lan wol ebreszto kapcsolat mac broadcast port',
+        );
     final bool showProjection = _matches(
       query,
       'vetites betu meret cim hatter opacity szinek szin',
@@ -642,7 +645,7 @@ class _DiatarSettingsSheetState extends State<DiatarSettingsSheet> {
                       title: Text(l10n.externalCommandsTitle),
                       subtitle: Text(l10n.externalCommandsSummary),
                       onTap: _openExternalCommandSettings,
-                      description: l10n.externalCommandsDescription,
+                      description: _externalCommandsDescription(l10n),
                     ),
                   if (showExternalCommands && (showSystem || showHotkeys))
                     const Divider(height: 1),
@@ -1604,11 +1607,14 @@ class _DiatarSettingsSheetState extends State<DiatarSettingsSheet> {
             if (_showCameraView) ...<Widget>[
               if (tcpTargets.length > 1)
                 DropdownButtonFormField<String>(
-                  initialValue: _cameraTarget != null &&
+                  initialValue:
+                      _cameraTarget != null &&
                           tcpTargets.contains(_cameraTarget)
                       ? _cameraTarget
                       : tcpTargets.first,
-                  decoration: InputDecoration(labelText: l10n.cameraSourceLabel),
+                  decoration: InputDecoration(
+                    labelText: l10n.cameraSourceLabel,
+                  ),
                   items: List<DropdownMenuItem<String>>.generate(
                     tcpTargets.length,
                     (int i) => DropdownMenuItem<String>(
@@ -1678,17 +1684,13 @@ class _DiatarSettingsSheetState extends State<DiatarSettingsSheet> {
               decoration: InputDecoration(
                 labelText: l10n.wolTargetsLabel,
                 hintText: l10n.wolTargetsHint,
-                hintStyle: TextStyle(
-                  color: theme.colorScheme.onSurfaceVariant,
-                ),
+                hintStyle: TextStyle(color: theme.colorScheme.onSurfaceVariant),
               ),
             ),
             const SizedBox(height: 8),
             Text(
               l10n.wolTargetsHelp,
-              style: TextStyle(
-                color: theme.colorScheme.onSurfaceVariant,
-              ),
+              style: TextStyle(color: theme.colorScheme.onSurfaceVariant),
             ),
             const SizedBox(height: 8),
             TextField(
@@ -1777,8 +1779,8 @@ class _DiatarSettingsSheetState extends State<DiatarSettingsSheet> {
 
     final String? cameraTarget =
         _cameraTarget != null && tcpTargets.contains(_cameraTarget)
-            ? _cameraTarget
-            : (tcpTargets.isEmpty ? null : tcpTargets.first);
+        ? _cameraTarget
+        : (tcpTargets.isEmpty ? null : tcpTargets.first);
 
     final int firstPort = localNetworkEnabled
         ? (_firstPortFromTargets(tcpTargets) ?? widget.initialSettings.port)
@@ -1952,7 +1954,7 @@ class _DiatarSettingsSheetState extends State<DiatarSettingsSheet> {
       builder: (BuildContext context, void Function(void Function()) setBoth) {
         final l10n = context.l10n;
         return <Widget>[
-          Text(l10n.externalCommandsHint),
+          Text(_externalCommandsHint(l10n)),
           const SizedBox(height: 8),
           _externalCommandField(
             controller: _externalCommandOnStart,
@@ -2045,6 +2047,14 @@ class _DiatarSettingsSheetState extends State<DiatarSettingsSheet> {
         message: context.l10n.externalCommandTestFailed('$error'),
       );
     } on PlatformException catch (error) {
+      if (!mounted) {
+        return;
+      }
+      await _showExternalCommandTestDialog(
+        title: context.l10n.externalCommandTestFailedTitle,
+        message: context.l10n.externalCommandTestFailed('$error'),
+      );
+    } on ExternalCommandException catch (error) {
       if (!mounted) {
         return;
       }
@@ -3615,7 +3625,28 @@ class _DiatarSettingsSheetState extends State<DiatarSettingsSheet> {
     }
     return defaultTargetPlatform == TargetPlatform.windows ||
         defaultTargetPlatform == TargetPlatform.linux ||
-        defaultTargetPlatform == TargetPlatform.android;
+        defaultTargetPlatform == TargetPlatform.android ||
+        defaultTargetPlatform == TargetPlatform.iOS;
+  }
+
+  String _externalCommandsDescription(AppLocalizations l10n) {
+    if (defaultTargetPlatform == TargetPlatform.android) {
+      return l10n.externalCommandsDescriptionAndroid;
+    }
+    if (defaultTargetPlatform == TargetPlatform.iOS) {
+      return l10n.externalCommandsDescriptionIos;
+    }
+    return l10n.externalCommandsDescriptionDesktop;
+  }
+
+  String _externalCommandsHint(AppLocalizations l10n) {
+    if (defaultTargetPlatform == TargetPlatform.android) {
+      return l10n.externalCommandsHintAndroid;
+    }
+    if (defaultTargetPlatform == TargetPlatform.iOS) {
+      return l10n.externalCommandsHintIos;
+    }
+    return l10n.externalCommandsHintDesktop;
   }
 
   String _eventToCombo(KeyEvent event) {

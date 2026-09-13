@@ -1356,7 +1356,10 @@ class DiatarMainController extends ChangeNotifier {
   }
 
   Future<void> setCameraViewSize(double width, double height) async {
-    settings = settings.copyWith(cameraViewWidth: width, cameraViewHeight: height);
+    settings = settings.copyWith(
+      cameraViewWidth: width,
+      cameraViewHeight: height,
+    );
     notifyListeners();
     await _settingsStore.save(settings);
   }
@@ -5392,6 +5395,8 @@ class DiatarMainController extends ChangeNotifier {
     } on ProcessException catch (error) {
       debugPrint('External command failed: $error');
     } on PlatformException catch (error) {
+      debugPrint('External command failed: $error');
+    } on ExternalCommandException catch (error) {
       debugPrint('External command failed: $error');
     }
   }

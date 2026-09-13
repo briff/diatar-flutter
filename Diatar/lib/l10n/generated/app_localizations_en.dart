@@ -1450,15 +1450,31 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get externalCommandsSummary =>
-      'Run commands or Android intents for application and projection events';
+      'Run external actions for application and projection events';
 
   @override
-  String get externalCommandsDescription =>
-      'Configure shell commands on Windows and Linux, or URIs, deep links, intents and broadcasts on Android, when the application or projection state changes.';
+  String get externalCommandsDescriptionDesktop =>
+      'Configure shell commands that run on Windows and Linux when the application or projection state changes.';
 
   @override
-  String get externalCommandsHint =>
-      'Leave a field empty to skip that event. On Windows and Linux commands run through the system shell. On Android, enter a URI or deep link, an Android Intent URI, or prefix an Intent URI with \"broadcast:\" to send it as a broadcast. Intent URI extras are supported, for example: intent:#Intent;action=com.example.ACTION;S.name=value;i.count=1;end';
+  String get externalCommandsDescriptionAndroid =>
+      'Configure URIs, deep links, Android intents or broadcasts that run when the application or projection state changes.';
+
+  @override
+  String get externalCommandsDescriptionIos =>
+      'Configure URLs or deep links that open when the application or projection state changes.';
+
+  @override
+  String get externalCommandsHintDesktop =>
+      'Leave a field empty to skip that event. Commands run through the operating system shell.';
+
+  @override
+  String get externalCommandsHintAndroid =>
+      'Leave a field empty to skip that event. Enter a URI or deep link, an Android Intent URI, or prefix an Intent URI with \"broadcast:\" to send it as a broadcast. Intent URI extras are supported, for example: intent:#Intent;action=com.example.ACTION;S.name=value;i.count=1;end';
+
+  @override
+  String get externalCommandsHintIos =>
+      'Leave a field empty to skip that event. Enter a URL or deep link handled by an installed app, for example: mycontroller://projection?state=on. Parameters can be passed in the URL query.';
 
   @override
   String get externalCommandOnStart => 'When the application starts';

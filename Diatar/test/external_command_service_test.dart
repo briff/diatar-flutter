@@ -35,4 +35,10 @@ void main() {
       });
     },
   );
+
+  test('supports iOS external URL actions', () {
+    debugDefaultTargetPlatformOverride = TargetPlatform.iOS;
+
+    expect(const ExternalCommandService().isSupported, isTrue);
+  });
 }

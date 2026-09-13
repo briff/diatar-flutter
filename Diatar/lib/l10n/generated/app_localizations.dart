@@ -2546,20 +2546,44 @@ abstract class AppLocalizations {
   /// No description provided for @externalCommandsSummary.
   ///
   /// In hu, this message translates to:
-  /// **'Parancsok vagy Android-intentek indítása program- és vetítési eseményekkor'**
+  /// **'Külső műveletek indítása program- és vetítési eseményekkor'**
   String get externalCommandsSummary;
 
-  /// No description provided for @externalCommandsDescription.
+  /// No description provided for @externalCommandsDescriptionDesktop.
   ///
   /// In hu, this message translates to:
-  /// **'A program vagy a vetítés állapotának változásakor Windows és Linux rendszeren shell parancs, Androidon URI, deep link, intent vagy broadcast indítása állítható be.'**
-  String get externalCommandsDescription;
+  /// **'A program vagy a vetítés állapotának változásakor Windows és Linux rendszeren futó shell parancsok beállítása.'**
+  String get externalCommandsDescriptionDesktop;
 
-  /// No description provided for @externalCommandsHint.
+  /// No description provided for @externalCommandsDescriptionAndroid.
   ///
   /// In hu, this message translates to:
-  /// **'Az üresen hagyott eseményhez nem fut parancs. Windows és Linux rendszeren a parancsokat az operációs rendszer parancsértelmezője indítja. Androidon URI vagy deep link, Android Intent URI, illetve broadcast küldéséhez \"broadcast:\" előtaggal ellátott Intent URI adható meg. Az Intent URI extrákat is kezel, például: intent:#Intent;action=com.example.ACTION;S.name=value;i.count=1;end'**
-  String get externalCommandsHint;
+  /// **'A program vagy a vetítés állapotának változásakor indított URI, deep link, Android intent vagy broadcast beállítása.'**
+  String get externalCommandsDescriptionAndroid;
+
+  /// No description provided for @externalCommandsDescriptionIos.
+  ///
+  /// In hu, this message translates to:
+  /// **'A program vagy a vetítés állapotának változásakor megnyíló URL vagy deep link beállítása.'**
+  String get externalCommandsDescriptionIos;
+
+  /// No description provided for @externalCommandsHintDesktop.
+  ///
+  /// In hu, this message translates to:
+  /// **'Az üresen hagyott eseményhez nem fut parancs. A parancsokat az operációs rendszer parancsértelmezője indítja.'**
+  String get externalCommandsHintDesktop;
+
+  /// No description provided for @externalCommandsHintAndroid.
+  ///
+  /// In hu, this message translates to:
+  /// **'Az üresen hagyott eseményhez nem fut parancs. URI vagy deep link, Android Intent URI, illetve broadcast küldéséhez \"broadcast:\" előtaggal ellátott Intent URI adható meg. Az Intent URI extrákat is kezel, például: intent:#Intent;action=com.example.ACTION;S.name=value;i.count=1;end'**
+  String get externalCommandsHintAndroid;
+
+  /// No description provided for @externalCommandsHintIos.
+  ///
+  /// In hu, this message translates to:
+  /// **'Az üresen hagyott eseményhez nem fut parancs. Telepített alkalmazás által kezelt URL vagy deep link adható meg, például: mycontroller://projection?state=on. A paraméterek az URL lekérdezési részében adhatók át.'**
+  String get externalCommandsHintIos;
 
   /// No description provided for @externalCommandOnStart.
   ///
