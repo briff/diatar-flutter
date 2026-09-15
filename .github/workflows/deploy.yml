@@ -179,6 +179,7 @@ jobs:
         with:
           distribution: temurin
           java-version: '17'
+          cache: gradle
 
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
@@ -192,7 +193,20 @@ jobs:
 
       - name: Build APK (Release)
         working-directory: ${{ matrix.app }}
-        run: flutter build apk --release
+        run: |
+          max_retries=3
+          for i in $(seq 1 $max_retries); do
+            if flutter build apk --release; then
+              exit 0
+            fi
+            if [ "$i" -eq "$max_retries" ]; then
+              echo "Android build failed after $max_retries attempts"
+              exit 1
+            fi
+            echo "Android build failed (attempt $i/$max_retries), clearing Gradle module cache and retrying..."
+            rm -rf "$HOME/.gradle/caches/modules-2"
+            sleep 15
+          done
 
       - name: Upload Android Artifact
         uses: actions/upload-artifact@v4
@@ -525,6 +539,7 @@ jobs:
         with:
           distribution: temurin
           java-version: '17'
+          cache: gradle
 
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
