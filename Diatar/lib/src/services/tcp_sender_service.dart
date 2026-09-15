@@ -245,6 +245,8 @@ class TcpSenderService {
     required List<String> lines,
     required int wordToHighlight,
   }) async {
+    // A text slide replaces a previously projected full-screen image.
+    _cachedPic = null;
     _cachedText = encodeTextRecord(title: title, lines: lines);
     await _enqueue(() => _sendPacket(RecTypes.text, _cachedText!));
   }
@@ -255,6 +257,8 @@ class TcpSenderService {
   }
 
   Future<void> sendPic(Uint8List bytes, {String ext = ''}) async {
+    // An image slide replaces a previously projected text slide.
+    _cachedText = null;
     _cachedPic = encodeImageRecord(bytes: bytes, ext: ext);
     await _enqueue(() => _sendPacket(RecTypes.pic, _cachedPic!));
   }
