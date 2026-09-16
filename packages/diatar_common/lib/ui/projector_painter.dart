@@ -10,6 +10,7 @@ import '../models/projection_frame.dart';
 import '../models/projection_globals.dart';
 import '../models/records.dart';
 
+import 'chord_renderer.dart';
 import 'kotta_assets.dart';
 
 class HighlightRenderState {
@@ -1171,16 +1172,13 @@ class ProjectorPainter extends CustomPainter {
   }
 
   double _chordBandHeightForFont(double fontSize) {
-    final TextPainter chordMeasure = TextPainter(
-      text: TextSpan(
-        text: 'Ag',
-        style: TextStyle(
-          fontWeight: FontWeight.w600,
-          fontSize: fontSize * (globals.akkordArany / 100.0),
-        ),
+    final ChordLayout chordMeasure = ChordRenderer.layout(
+      'C7',
+      TextStyle(
+        color: globals.txtColor,
+        fontSize: fontSize * (globals.akkordArany / 100.0),
       ),
-      textDirection: TextDirection.ltr,
-    )..layout();
+    );
     return chordMeasure.height + 2;
   }
 
@@ -1626,15 +1624,14 @@ class ProjectorPainter extends CustomPainter {
       measure.layout();
       double textWidth = measure.width;
 
-      measure.text = TextSpan(
-        text: chordText,
-        style: TextStyle(
-          fontWeight: FontWeight.w600,
+      final ChordLayout chord = ChordRenderer.layout(
+        chordText,
+        TextStyle(
+          color: globals.txtColor,
           fontSize: fontSize * (globals.akkordArany / 100.0),
         ),
       );
-      measure.layout();
-      final double chordWidth = measure.width;
+      final double chordWidth = chord.width;
 
       if (textWidth + 1 >= chordWidth) {
         padded.add(word);
@@ -2002,17 +1999,13 @@ class ProjectorPainter extends CustomPainter {
       );
       measure.layout();
       if ((w.chord ?? '').isNotEmpty) {
-        final TextPainter chord = TextPainter(
-          text: TextSpan(
-            text: w.chord,
-            style: TextStyle(
-              color: globals.txtColor,
-              fontWeight: FontWeight.w600,
-              fontSize: fontSize * (globals.akkordArany / 100),
-            ),
+        final ChordLayout chord = ChordRenderer.layout(
+          w.chord!,
+          TextStyle(
+            color: globals.txtColor,
+            fontSize: fontSize * (globals.akkordArany / 100),
           ),
-          textDirection: TextDirection.ltr,
-        )..layout();
+        );
         chord.paint(canvas, Offset(cx, y - chord.height - 2));
       }
       cx += measure.width;

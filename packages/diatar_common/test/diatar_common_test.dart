@@ -7,6 +7,41 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  test('Diatar chords use Hungarian note names and styled parts', () {
+    final DiatarChord chord = DiatarChord.tryParse('H-7+/C+')!;
+
+    expect(chord.parts.map((ChordPart part) => part.text), <String>[
+      'B',
+      '7+',
+      '/',
+      'C',
+      'is',
+    ]);
+    expect(chord.parts.map((ChordPart part) => part.style), <ChordPartStyle>[
+      ChordPartStyle.root,
+      ChordPartStyle.superscript,
+      ChordPartStyle.normal,
+      ChordPartStyle.normal,
+      ChordPartStyle.normal,
+    ]);
+  });
+
+  test('Diatar chords spell flat and sharp notes consistently', () {
+    expect(
+      DiatarChord.tryParse('C-')!.parts.map((ChordPart part) => part.text),
+      <String>['C', 'es'],
+    );
+    expect(
+      DiatarChord.tryParse('A-')!.parts.map((ChordPart part) => part.text),
+      <String>['A', 's'],
+    );
+    expect(
+      DiatarChord.tryParse('F+')!.parts.map((ChordPart part) => part.text),
+      <String>['F', 'is'],
+    );
+    expect(DiatarChord.tryParse('Cm#'), isNull);
+  });
+
   test('default app settings are valid', () {
     const AppSettings s = AppSettings();
     expect(s.port, 1024);
