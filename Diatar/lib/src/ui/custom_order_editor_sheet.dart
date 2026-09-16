@@ -2459,7 +2459,7 @@ Future<void> _openSync() async {
                   leading: SizedBox(
                     // Leave room after the drag handle for Android's
                     // device-pixel rounding of the compact icon buttons.
-                    width: showSoundControls ? 138 : 82,
+                    width: showSoundControls ? 146 : 82,
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: <Widget>[
@@ -2561,7 +2561,7 @@ Future<void> _openSync() async {
                   title: Padding(
                     padding: EdgeInsets.only(
                       left: isContinuation
-                          ? (showSoundControls ? 158 : 102)
+                          ? (showSoundControls ? 166 : 102)
                           : 16,
                       right: 8,
                     ),
