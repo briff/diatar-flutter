@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math';
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'dart:io';
@@ -7,6 +8,8 @@ import 'dart:math' as math;
 import 'package:diatar_common/diatar_common.dart';
 import 'package:file_selector/file_selector.dart';
 import 'package:flutter/material.dart';
+
+import '../../sync/ui/sync_page.dart';
 import 'package:flutter/services.dart';
 import 'package:path/path.dart' as path;
 
@@ -741,6 +744,11 @@ class _CustomOrderEditorPanelState extends State<CustomOrderEditorPanel> {
                         icon: const Icon(Icons.close),
                         label: Text(l10n.close),
                       ),
+                    OutlinedButton.icon(
+                      onPressed: _openSync,
+                      icon: const Icon(Icons.sync),
+                      label: const Text('Szinkron'),
+                    ),
                   ],
                 ),
               ),
@@ -750,6 +758,26 @@ class _CustomOrderEditorPanelState extends State<CustomOrderEditorPanel> {
       },
     );
   }
+
+Future<void> _openSync() async {
+  await showDialog<void>(
+    context: context,
+    barrierDismissible: false,
+    builder: (BuildContext dialogContext) {
+      final Size screenSize = MediaQuery.sizeOf(dialogContext);
+
+      return Dialog(
+        insetPadding: const EdgeInsets.all(24),
+        clipBehavior: Clip.antiAlias,
+        child: SizedBox(
+          width: min(600, screenSize.width - 48),
+          height: min(780, screenSize.height - 48),
+          child: const SyncPage(),
+        ),
+      );
+    },
+  );
+}
 
   Future<void> _openInsertVersesDialog() async {
     final List<DtxBook> books = controller.books
@@ -1559,7 +1587,7 @@ class _CustomOrderEditorPanelState extends State<CustomOrderEditorPanel> {
     });
   }
 
-  /// Az éppen aktív (szerkesztett) diasor engedélyezve van-e.
+  /// Az Ä‚Â©ppen aktÄ‚Â­v (szerkesztett) diasor engedÄ‚Â©lyezve van-e.
   bool get _currentSetEnabled {
     final int index = controller.activeCustomOrderSetIndex;
     if (index < 0 || index >= controller.customOrderSets.length) {
@@ -1568,9 +1596,9 @@ class _CustomOrderEditorPanelState extends State<CustomOrderEditorPanel> {
     return controller.customOrderSets[index].enabled;
   }
 
-  /// Elmenti az éppen szerkesztett diasort, majd átvált a megadott
-  /// azonosítójú diasorra, hogy azt lehessen szerkeszteni. Ha a cél
-  /// diasor le van tiltva, előbb engedélyezi, hogy szerkeszthető legyen.
+  /// Elmenti az Ä‚Â©ppen szerkesztett diasort, majd Ä‚Ë‡tvÄ‚Ë‡lt a megadott
+  /// azonosÄ‚Â­tÄ‚Ĺ‚jÄ‚Ĺź diasorra, hogy azt lehessen szerkeszteni. Ha a cÄ‚Â©l
+  /// diasor le van tiltva, elÄąâ€bb engedÄ‚Â©lyezi, hogy szerkeszthetÄąâ€ legyen.
   Future<void> _switchEditingSet(String id) async {
     await _commitEntries();
     if (!mounted) {
@@ -1594,8 +1622,8 @@ class _CustomOrderEditorPanelState extends State<CustomOrderEditorPanel> {
     });
   }
 
-  /// Be-/kikapcsolja az éppen aktív diasort. A kikapcsolt diasor nem
-  /// jelenik meg a nézetekben, de megmarad (újra kiválasztható a listából).
+  /// Be-/kikapcsolja az Ä‚Â©ppen aktÄ‚Â­v diasort. A kikapcsolt diasor nem
+  /// jelenik meg a nÄ‚Â©zetekben, de megmarad (Ä‚Ĺźjra kivÄ‚Ë‡laszthatÄ‚Ĺ‚ a listÄ‚Ë‡bÄ‚Ĺ‚l).
   Future<void> _toggleCurrentSetEnabled() async {
     final int index = controller.activeCustomOrderSetIndex;
     if (index < 0) {
@@ -1610,7 +1638,7 @@ class _CustomOrderEditorPanelState extends State<CustomOrderEditorPanel> {
     });
   }
 
-  /// Megerősítés után eltávolítja az éppen aktív diasort a betöltöttek közül.
+  /// MegerÄąâ€sÄ‚Â­tÄ‚Â©s utÄ‚Ë‡n eltÄ‚Ë‡volÄ‚Â­tja az Ä‚Â©ppen aktÄ‚Â­v diasort a betÄ‚Â¶ltÄ‚Â¶ttek kÄ‚Â¶zÄ‚Ä˝l.
   Future<void> _confirmRemoveCurrentSet() async {
     final int index = controller.activeCustomOrderSetIndex;
     if (index < 0) {
@@ -1675,7 +1703,7 @@ class _CustomOrderEditorPanelState extends State<CustomOrderEditorPanel> {
     });
   }
 
-  /// Átnevezi az éppen aktív diasort a megadott névre.
+  /// Ä‚Âtnevezi az Ä‚Â©ppen aktÄ‚Â­v diasort a megadott nÄ‚Â©vre.
   Future<void> _renameCurrentSet() async {
     final int index = controller.activeCustomOrderSetIndex;
     if (index < 0 || index >= controller.customOrderSets.length) {
@@ -1728,7 +1756,7 @@ class _CustomOrderEditorPanelState extends State<CustomOrderEditorPanel> {
     });
   }
 
-  /// Létrehoz egy új, üres diasort a megadott névvel, és aktívvá teszi.
+  /// LÄ‚Â©trehoz egy Ä‚Ĺźj, Ä‚Ä˝res diasort a megadott nÄ‚Â©vvel, Ä‚Â©s aktÄ‚Â­vvÄ‚Ë‡ teszi.
   Future<void> _createNewSet() async {
     final TextEditingController nameController = TextEditingController();
     final String? enteredName = await showDialog<String>(
@@ -1803,9 +1831,9 @@ class _CustomOrderEditorPanelState extends State<CustomOrderEditorPanel> {
       final bool hadUsableConfiguredDir = initialDir != null;
 
       if (!kIsWeb && Platform.isAndroid) {
-        // Androidon a rendszer "Mentés másként" ablakát (ACTION_CREATE_DOCUMENT)
-        // használjuk az új hely kiválasztásához. Ha már van mentett célhely
-        // (SAF URI), előbb felajánljuk a közvetlen felülírást.
+        // Androidon a rendszer "MentÄ‚Â©s mÄ‚Ë‡skÄ‚Â©nt" ablakÄ‚Ë‡t (ACTION_CREATE_DOCUMENT)
+        // hasznÄ‚Ë‡ljuk az Ä‚Ĺźj hely kivÄ‚Ë‡lasztÄ‚Ë‡sÄ‚Ë‡hoz. Ha mÄ‚Ë‡r van mentett cÄ‚Â©lhely
+        // (SAF URI), elÄąâ€bb felajÄ‚Ë‡nljuk a kÄ‚Â¶zvetlen felÄ‚Ä˝lÄ‚Â­rÄ‚Ë‡st.
         final ({String uri, String displayName, String? renameFromName})?
         saved = await _saveDiaWithAndroidFlow(
           defaultFileName: defaultFileName,
@@ -1820,7 +1848,7 @@ class _CustomOrderEditorPanelState extends State<CustomOrderEditorPanel> {
             explicitName: saved.renameFromName,
           );
         } catch (_) {
-          // A fájl mentése megtörtént; a diasor-név frissítése csak mellékhatás.
+          // A fÄ‚Ë‡jl mentÄ‚Â©se megtÄ‚Â¶rtÄ‚Â©nt; a diasor-nÄ‚Â©v frissÄ‚Â­tÄ‚Â©se csak mellÄ‚Â©khatÄ‚Ë‡s.
         }
         if (!mounted) {
           return;
@@ -1974,7 +2002,7 @@ class _CustomOrderEditorPanelState extends State<CustomOrderEditorPanel> {
           embedImages: embedImages,
         );
         if (overwritten) {
-          // Felülíráskor nincs névmegadás: a diasor neve ne változzon.
+          // FelÄ‚Ä˝lÄ‚Â­rÄ‚Ë‡skor nincs nÄ‚Â©vmegadÄ‚Ë‡s: a diasor neve ne vÄ‚Ë‡ltozzon.
           return (
             uri: storedUri,
             displayName: storedName,
@@ -2030,9 +2058,9 @@ class _CustomOrderEditorPanelState extends State<CustomOrderEditorPanel> {
           ),
         );
       } catch (_) {
-        // A lokális DIA-mentés már sikeres volt; a beállításokban a célhely
-        // frissítése csak mellékhatás (MQTT/desktop-bridge szinkron), amelynek
-        // átmeneti hibája nem teheti "sikertelenné" a fájlmentést.
+        // A lokÄ‚Ë‡lis DIA-mentÄ‚Â©s mÄ‚Ë‡r sikeres volt; a beÄ‚Ë‡llÄ‚Â­tÄ‚Ë‡sokban a cÄ‚Â©lhely
+        // frissÄ‚Â­tÄ‚Â©se csak mellÄ‚Â©khatÄ‚Ë‡s (MQTT/desktop-bridge szinkron), amelynek
+        // Ä‚Ë‡tmeneti hibÄ‚Ë‡ja nem teheti "sikertelennÄ‚Â©" a fÄ‚Ë‡jlmentÄ‚Â©st.
       }
       return (uri: uri, displayName: savedName, renameFromName: savedName);
     } finally {
