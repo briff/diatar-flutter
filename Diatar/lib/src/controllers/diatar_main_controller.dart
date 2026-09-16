@@ -1114,7 +1114,7 @@ class DiatarMainController extends ChangeNotifier {
     await _cameraView.init();
     _configureSender();
     await _applyTransport();
-    unawaited(_checkStartupDtxUpdates());
+    unawaited(_checkStartupContentUpdates());
     await _tryAutoLoadTodayDia();
     if (customOrderActive &&
         _customOrderCursor >= 0 &&
@@ -1233,27 +1233,70 @@ class DiatarMainController extends ChangeNotifier {
     await prefs.setStringList(key, normalized);
   }
 
-  Future<void> _checkStartupDtxUpdates() async {
+  @visibleForTesting
+  static bool hasEligibleStartupDtxUpdate(Iterable<DtxManageItem> items) {
+    return items.any(
+      (DtxManageItem managed) =>
+          managed.item.isOfficial &&
+          managed.item.isInstalled &&
+          managed.item.updateAvailable &&
+          !managed.excluded,
+    );
+  }
+
+  @visibleForTesting
+  static bool hasEligibleStartupDtzUpdate(Iterable<DtzManageItem> items) {
+    return items.any(
+      (DtzManageItem managed) =>
+          managed.item.isOfficial &&
+          managed.item.isInstalled &&
+          managed.item.updateAvailable &&
+          !managed.excluded,
+    );
+  }
+
+  Future<void> _checkStartupContentUpdates() async {
     if (_startupDownloadDialogHandled || _startupDownloadDialogRequested) {
       return;
     }
-    try {
-      final List<DtxManageItem> items = await loadDtxManagerItems();
-      final bool hasInstalledUpdate = items.any(
-        (DtxManageItem managed) =>
-            managed.item.isOfficial &&
-            managed.item.isInstalled &&
-            managed.item.updateAvailable,
-      );
-      if (!hasInstalledUpdate ||
-          _startupDownloadDialogHandled ||
-          _startupDownloadDialogRequested) {
-        return;
-      }
+
+    final List<bool> updateChecks = await Future.wait<bool>(<Future<bool>>[
+      _hasStartupDtxUpdate(),
+      _hasStartupDtzUpdate(),
+      _hasStartupMusicUpdate(),
+    ]);
+    if (updateChecks.any((bool hasUpdate) => hasUpdate) &&
+        !_startupDownloadDialogHandled &&
+        !_startupDownloadDialogRequested) {
       _startupDownloadDialogRequested = true;
       notifyListeners();
-    } catch (_) {
-      // Offline or remote list failure should not block startup.
+    }
+  }
+
+  Future<bool> _hasStartupDtxUpdate() async {
+    try {
+      return hasEligibleStartupDtxUpdate(await loadDtxManagerItems());
+    } catch (error) {
+      debugPrint('Unable to check DTX updates at startup: $error');
+      return false;
+    }
+  }
+
+  Future<bool> _hasStartupDtzUpdate() async {
+    try {
+      return hasEligibleStartupDtzUpdate(await loadDtzManagerItems());
+    } catch (error) {
+      debugPrint('Unable to check score updates at startup: $error');
+      return false;
+    }
+  }
+
+  Future<bool> _hasStartupMusicUpdate() async {
+    try {
+      return hasEligibleStartupDtzUpdate(await loadMusicManagerItems());
+    } catch (error) {
+      debugPrint('Unable to check music updates at startup: $error');
+      return false;
     }
   }
 

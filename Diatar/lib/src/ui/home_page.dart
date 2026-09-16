@@ -575,6 +575,7 @@ class _DiatarHomePageState extends State<DiatarHomePage> {
   double? _landscapeDragControlsWidth;
   bool _presentationControlsVisible = false;
   bool _homeTopBarHidden = false;
+  bool _startupDownloadDialogScheduled = false;
   Size? _cameraDragSize;
   Size _cameraDragInitialSize = Size.zero;
   Offset? _cameraDragStartPointer;
@@ -874,12 +875,16 @@ class _DiatarHomePageState extends State<DiatarHomePage> {
       body: AnimatedBuilder(
         animation: controller,
         builder: (BuildContext context, Widget? child) {
-          if (controller.shouldAutoOpenDownloadDialog) {
-            controller.markStartupDownloadDialogHandled();
+          if (controller.shouldAutoOpenDownloadDialog &&
+              !_startupDownloadDialogScheduled) {
+            _startupDownloadDialogScheduled = true;
             WidgetsBinding.instance.addPostFrameCallback((_) {
-              if (!context.mounted) {
+              _startupDownloadDialogScheduled = false;
+              if (!context.mounted ||
+                  !controller.shouldAutoOpenDownloadDialog) {
                 return;
               }
+              controller.markStartupDownloadDialogHandled();
               unawaited(_openDownloadDialog(context));
             });
           }
