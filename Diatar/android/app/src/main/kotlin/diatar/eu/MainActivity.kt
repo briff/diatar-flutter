@@ -1,6 +1,17 @@
 package diatar.eu
 
 import android.app.Activity
+import android.app.AlertDialog
+import android.content.ComponentName
+import android.provider.DocumentsContract
+import android.provider.Settings
+import android.service.notification.NotificationListenerService
+import androidx.core.app.NotificationManagerCompat
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
+import kotlinx.coroutines.launch
 import android.content.Intent
 import android.net.Uri
 import android.provider.OpenableColumns
@@ -18,6 +29,15 @@ class MainActivity : FlutterActivity() {
 		private const val EXTERNAL_COMMAND_CHANNEL = "diatar.eu/external_command"
 		private const val REQUEST_SAVE_DIA = 6091
 		private const val REQUEST_PICK_ZIP = 6092
+
+        private const val STORAGE_CHANNEL = "com.example.sync_app/storage"
+        private const val SYNC_CHANNEL = "com.example.sync_app/sync"
+        private const val REQUEST_FOLDER = 1001
+        private const val PREFS_NAME = "sync_app_folders"
+        private const val KEY_LOCAL_URI = "local_uri"
+        private const val KEY_LOCAL_NAME = "local_name"
+        private const val KEY_USB_URI = "usb_uri"
+        private const val KEY_USB_NAME = "usb_name"
 	}
 
 	private var pendingSaveResult: MethodChannel.Result? = null
@@ -25,6 +45,12 @@ class MainActivity : FlutterActivity() {
 	private var pendingSavePath: String? = null
 	private var pendingZipImportResult: MethodChannel.Result? = null
 	private var backupSaveProgressChannel: MethodChannel? = null
+
+    private var pendingFolderResult: MethodChannel.Result? = null
+    private var pendingFolderType: String? = null
+    private var preparedSyncPlan: PreparedSyncPlan? = null
+    private var syncMethodChannel: MethodChannel? = null
+    private val activityScope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
 
 	override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
 		super.configureFlutterEngine(flutterEngine)
@@ -57,6 +83,10 @@ class MainActivity : FlutterActivity() {
 					result.notImplemented()
 				}
 			}
+
+
+        configureStorageChannel(flutterEngine)
+        configureSyncChannel(flutterEngine)
 	}
 
 	private fun runExternalCommand(call: MethodCall, result: MethodChannel.Result) {
@@ -219,6 +249,11 @@ class MainActivity : FlutterActivity() {
 
 	override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
 		super.onActivityResult(requestCode, resultCode, data)
+
+        if (requestCode == REQUEST_FOLDER) {
+            handleSyncFolderResult(resultCode, data)
+            return
+        }
 
 		if (requestCode == REQUEST_PICK_ZIP) {
 			handleZipImportPick(resultCode, data)
@@ -390,4 +425,670 @@ class MainActivity : FlutterActivity() {
 		pendingSaveBytes = null
 		pendingSavePath = null
 	}
+
+
+    private fun configureStorageChannel(
+        flutterEngine: FlutterEngine
+    ) {
+        MethodChannel(
+            flutterEngine.dartExecutor.binaryMessenger,
+            STORAGE_CHANNEL
+        ).setMethodCallHandler { call, result ->
+
+            when (call.method) {
+
+                "selectFolder" -> {
+                    val type =
+                        call.argument<String>(
+                            "type"
+                        )
+
+                    if (
+                        type != "local" &&
+                        type != "usb"
+                    ) {
+                        result.error(
+                            "INVALID_FOLDER_TYPE",
+                            "Érvénytelen mappatípus.",
+                            null
+                        )
+                    } else {
+                        selectFolder(
+                            type,
+                            result
+                        )
+                    }
+                }
+
+                "loadFolder" -> {
+                    val type =
+                        call.argument<String>(
+                            "type"
+                        )
+
+                    if (
+                        type != "local" &&
+                        type != "usb"
+                    ) {
+                        result.error(
+                            "INVALID_FOLDER_TYPE",
+                            "Érvénytelen mappatípus.",
+                            null
+                        )
+                    } else {
+                        result.success(
+                            loadFolder(type)
+                        )
+                    }
+                }
+
+                else -> {
+                    result.notImplemented()
+                }
+            }
+        }
+    }
+
+    private fun configureSyncChannel(
+        flutterEngine: FlutterEngine
+    ) {
+        syncMethodChannel =
+            MethodChannel(
+                flutterEngine
+                    .dartExecutor
+                    .binaryMessenger,
+                SYNC_CHANNEL
+            )
+
+        syncMethodChannel
+            ?.setMethodCallHandler {
+                call,
+                result ->
+
+                when (call.method) {
+
+                    "hasSyncState" -> {
+                        val source =
+                            call.argument<String>(
+                                "source"
+                            )
+
+                        val target =
+                            call.argument<String>(
+                                "target"
+                            )
+
+                        if (
+                            source == null ||
+                            target == null
+                        ) {
+                            result.error(
+                                "INVALID_ARGUMENT",
+                                "Hiányzó forrás vagy cél.",
+                                null
+                            )
+                            return@setMethodCallHandler
+                        }
+
+                        try {
+                            result.success(
+                                SyncEngine.hasSyncState(
+                                    context = this,
+                                    firstUri =
+                                        Uri.parse(
+                                            source
+                                        ),
+                                    secondUri =
+                                        Uri.parse(
+                                            target
+                                        )
+                                )
+                            )
+                        } catch (e: Exception) {
+                            result.error(
+                                "SYNC_STATE_ERROR",
+                                e.message,
+                                null
+                            )
+                        }
+                    }
+
+                    "prepareSync" -> {
+                        prepareSync(
+                            call.argument(
+                                "source"
+                            ),
+                            call.argument(
+                                "target"
+                            ),
+                            call.argument<Boolean>(
+                                "mirrorMode"
+                            ) ?: false,
+                            call.argument<Boolean>(
+                                "dryRun"
+                            ) ?: false,
+                            result
+                        )
+                    }
+
+                    "executeSync" -> {
+                        executeSync(
+                            allowDelete =
+                                call.argument<Boolean>(
+                                    "allowDelete"
+                                ) ?: false,
+                            result = result
+                        )
+                    }
+
+                    "ejectUsb" -> {
+                        ejectUsb(result)
+                    }
+
+                    else -> {
+                        result.notImplemented()
+                    }
+                }
+            }
+    }
+
+    private fun prepareSync(
+        source: String?,
+        target: String?,
+        mirrorMode: Boolean,
+        dryRun: Boolean,
+        result: MethodChannel.Result
+    ) {
+        if (
+            source.isNullOrBlank() ||
+            target.isNullOrBlank()
+        ) {
+            result.error(
+                "INVALID_ARGUMENT",
+                "Hiányzó forrás vagy cél.",
+                null
+            )
+            return
+        }
+
+        preparedSyncPlan = null
+
+        activityScope.launch {
+
+            try {
+                val plan =
+                    SyncEngine.prepareSync(
+                        context = this@MainActivity,
+                        sourceUri =
+                            Uri.parse(source),
+                        targetUri =
+                            Uri.parse(target),
+                        mirrorMode = mirrorMode,
+                        dryRun = dryRun,
+                        onProgress = {
+                            progress ->
+                            sendProgress(progress)
+                        }
+                    )
+
+                preparedSyncPlan = plan
+
+                result.success(
+                    mapOf(
+                        "copyCount" to
+                            plan.copyCount,
+                        "deleteCount" to
+                            plan.deleteCount,
+                        "newFileCount" to
+                            plan.newFileCount,
+                        "updatedFileCount" to
+                            plan.updatedFileCount,
+                        "mirrorMode" to
+                            plan.mirrorMode,
+                        "dryRun" to
+                            plan.dryRun
+                    )
+                )
+
+            } catch (e: Exception) {
+
+                preparedSyncPlan = null
+
+                result.error(
+                    "PREPARE_FAILED",
+                    e.message
+                        ?: "A felmérés nem sikerült.",
+                    null
+                )
+            }
+        }
+    }
+
+    private fun executeSync(
+        allowDelete: Boolean,
+        result: MethodChannel.Result
+    ) {
+        val plan =
+            preparedSyncPlan
+
+        if (plan == null) {
+            result.error(
+                "NO_PREPARED_PLAN",
+                "Nincs végrehajtható szinkronterv.",
+                null
+            )
+            return
+        }
+
+        activityScope.launch {
+
+            try {
+                val syncResult =
+                    SyncEngine
+                        .executePreparedSync(
+                            context =
+                                this@MainActivity,
+                            plan = plan,
+                            allowDelete =
+                                allowDelete,
+                            onProgress = {
+                                progress ->
+                                sendProgress(
+                                    progress
+                                )
+                            }
+                        )
+
+                preparedSyncPlan = null
+
+                result.success(
+                    mapOf(
+                        "newFiles" to
+                            syncResult.newFiles,
+                        "updatedFiles" to
+                            syncResult.updatedFiles,
+                        "deletedFiles" to
+                            syncResult.deletedFiles,
+                        "unchangedFiles" to
+                            syncResult.unchangedFiles,
+                        "errors" to
+                            syncResult.errors,
+                        "dryRun" to
+                            syncResult.dryRun
+                    )
+                )
+
+            } catch (
+                e: DeletionConfirmationRequired
+            ) {
+
+                result.error(
+                    "DELETE_CONFIRMATION_REQUIRED",
+                    "A szinkronizálás " +
+                        "${e.deleteCount} fájl " +
+                        "törlését igényli.",
+                    e.deleteCount
+                )
+
+            } catch (e: Exception) {
+
+                preparedSyncPlan = null
+
+                result.error(
+                    "EXECUTE_FAILED",
+                    e.message
+                        ?: "A szinkronizálás nem sikerült.",
+                    null
+                )
+            }
+        }
+    }
+
+    private fun sendProgress(
+        progress: SyncProgress
+    ) {
+        activityScope.launch {
+
+            syncMethodChannel
+                ?.invokeMethod(
+                    "progress",
+                    mapOf(
+                        "percent" to
+                            progress.percent,
+                        "processedFiles" to
+                            progress.processedFiles,
+                        "totalFiles" to
+                            progress.totalFiles,
+                        "currentFile" to
+                            progress.currentFile,
+                        "status" to
+                            progress.status
+                    )
+                )
+        }
+    }
+
+    private fun ejectUsb(
+        result: MethodChannel.Result
+    ) {
+        if (!isNotificationAccessGranted()) {
+            openNotificationAccessSettings()
+            result.error(
+                "NOTIFICATION_ACCESS_REQUIRED",
+                "A pendrive leválasztásához engedélyezd az értesítés-hozzáférést, majd térj vissza az alkalmazásba és próbáld újra.",
+                null
+            )
+            return
+        }
+
+        if (!UsbNotificationListener.isRunning()) {
+            try {
+                NotificationListenerService.requestRebind(
+                    ComponentName(
+                        this,
+                        UsbNotificationListener::class.java
+                    )
+                )
+            } catch (_: Exception) {
+            }
+        }
+
+        AlertDialog.Builder(this)
+            .setTitle("Pendrive leválasztása")
+            .setMessage(
+                "Biztosan leválasztod a pendrive-ot?\n\n" +
+                    "Csak akkor folytasd, ha a szinkronizálás már befejeződött."
+            )
+            .setNegativeButton("MÉGSEM") { dialog, _ ->
+                dialog.dismiss()
+                result.success(false)
+            }
+            .setPositiveButton("LEVÁLASZTÁS") { dialog, _ ->
+                dialog.dismiss()
+
+                val ejectResult =
+                    UsbNotificationListener.ejectUsb()
+
+                when (ejectResult) {
+                    UsbEjectResult.SUCCESS ->
+                        result.success(true)
+
+                    UsbEjectResult.LISTENER_NOT_RUNNING ->
+                        result.error(
+                            "LISTENER_NOT_RUNNING",
+                            "Az értesítésfigyelő még nem aktív. Próbáld meg néhány másodperc múlva újra.",
+                            null
+                        )
+
+                    UsbEjectResult.USB_NOTIFICATION_NOT_FOUND ->
+                        result.error(
+                            "USB_NOTIFICATION_NOT_FOUND",
+                            "Nem található csatlakoztatott USB-tároló.",
+                            null
+                        )
+
+                    UsbEjectResult.EJECT_ACTION_NOT_FOUND ->
+                        result.error(
+                            "EJECT_ACTION_NOT_FOUND",
+                            "Az USB értesítésben nem található Leválasztás művelet.",
+                            null
+                        )
+
+                    UsbEjectResult.PENDING_INTENT_CANCELLED ->
+                        result.error(
+                            "PENDING_INTENT_CANCELLED",
+                            "A rendszer Leválasztás művelete már nem érvényes.",
+                            null
+                        )
+
+                    UsbEjectResult.ERROR ->
+                        result.error(
+                            "USB_EJECT_FAILED",
+                            "A pendrive leválasztása nem sikerült.",
+                            null
+                        )
+                }
+            }
+            .setOnCancelListener {
+                result.success(false)
+            }
+            .show()
+    }
+
+    private fun isNotificationAccessGranted(): Boolean {
+        return NotificationManagerCompat
+            .getEnabledListenerPackages(this)
+            .contains(packageName)
+    }
+
+    private fun openNotificationAccessSettings() {
+        try {
+            startActivity(
+                Intent(
+                    Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS
+                )
+            )
+        } catch (_: Exception) {
+            try {
+                startActivity(
+                    Intent(Settings.ACTION_SETTINGS)
+                )
+            } catch (_: Exception) {
+            }
+        }
+    }
+
+    private fun selectFolder(
+        type: String,
+        result: MethodChannel.Result
+    ) {
+        if (pendingFolderResult != null) {
+            result.error(
+                "FOLDER_PICKER_BUSY",
+                "Már folyamatban van egy " +
+                    "mappaválasztás.",
+                null
+            )
+            return
+        }
+
+        pendingFolderResult = result
+        pendingFolderType = type
+
+        val intent =
+            Intent(
+                Intent.ACTION_OPEN_DOCUMENT_TREE
+            ).apply {
+
+                addFlags(
+                    Intent.FLAG_GRANT_READ_URI_PERMISSION or
+                        Intent.FLAG_GRANT_WRITE_URI_PERMISSION or
+                        Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION or
+                        Intent.FLAG_GRANT_PREFIX_URI_PERMISSION
+                )
+            }
+
+        startActivityForResult(
+            intent,
+            REQUEST_FOLDER
+        )
+    }
+
+    private fun handleSyncFolderResult(resultCode: Int, data: Intent?) {
+        val result = pendingFolderResult
+        val type = pendingFolderType
+        pendingFolderResult = null
+        pendingFolderType = null
+
+        if (result == null || type == null) return
+
+        if (resultCode != Activity.RESULT_OK) {
+            result.success(null)
+            return
+        }
+
+        val uri = data?.data
+        if (uri == null) {
+            result.success(null)
+            return
+        }
+
+        try {
+            val takeFlags = data.flags and
+                (Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION)
+
+            contentResolver.takePersistableUriPermission(uri, takeFlags)
+
+            val displayName = makeDisplayName(uri)
+            saveFolder(type, uri.toString(), displayName)
+
+            result.success(
+                mapOf(
+                    "value" to uri.toString(),
+                    "displayName" to displayName
+                )
+            )
+        } catch (e: Exception) {
+            result.error(
+                "PERSIST_PERMISSION_FAILED",
+                e.message ?: "A tartós mappajogosultság nem adható meg.",
+                null
+            )
+        }
+    }
+
+    private fun saveFolder(
+        type: String,
+        uri: String,
+        displayName: String
+    ) {
+        val prefs =
+            getSharedPreferences(
+                PREFS_NAME,
+                MODE_PRIVATE
+            )
+
+        val uriKey =
+            if (type == "local") {
+                KEY_LOCAL_URI
+            } else {
+                KEY_USB_URI
+            }
+
+        val nameKey =
+            if (type == "local") {
+                KEY_LOCAL_NAME
+            } else {
+                KEY_USB_NAME
+            }
+
+        prefs.edit()
+            .putString(
+                uriKey,
+                uri
+            )
+            .putString(
+                nameKey,
+                displayName
+            )
+            .apply()
+    }
+
+    private fun loadFolder(
+        type: String
+    ): Map<String, String>? {
+
+        val prefs =
+            getSharedPreferences(
+                PREFS_NAME,
+                MODE_PRIVATE
+            )
+
+        val uriKey =
+            if (type == "local") {
+                KEY_LOCAL_URI
+            } else {
+                KEY_USB_URI
+            }
+
+        val nameKey =
+            if (type == "local") {
+                KEY_LOCAL_NAME
+            } else {
+                KEY_USB_NAME
+            }
+
+        val uri =
+            prefs.getString(
+                uriKey,
+                null
+            ) ?: return null
+
+        val name =
+            prefs.getString(
+                nameKey,
+                null
+            ) ?: makeDisplayName(
+                Uri.parse(uri)
+            )
+
+        return mapOf(
+            "value" to uri,
+            "displayName" to name
+        )
+    }
+
+    private fun makeDisplayName(
+        uri: Uri
+    ): String {
+        return try {
+            val documentId =
+                DocumentsContract
+                    .getTreeDocumentId(uri)
+
+            val parts =
+                documentId.split(
+                    ":",
+                    limit = 2
+                )
+
+            val storageId =
+                parts.getOrNull(0)
+                    ?: ""
+
+            val relativePath =
+                parts.getOrNull(1)
+                    ?: ""
+
+            val storageName =
+                if (
+                    storageId.equals(
+                        "primary",
+                        ignoreCase = true
+                    )
+                ) {
+                    "Belső tárhely"
+                } else {
+                    "Pendrive"
+                }
+
+            if (relativePath.isEmpty()) {
+                storageName
+            } else {
+                "$storageName / " +
+                    relativePath.replace(
+                        "\\",
+                        "/"
+                    )
+            }
+
+        } catch (_: Exception) {
+            uri.toString()
+        }
+    }
+
+    override fun onDestroy() {
+        activityScope.cancel()
+        super.onDestroy()
+    }
 }

@@ -41,6 +41,15 @@
             android:authorities="${applicationId}.SuperClipboardDataProvider"
             android:exported="true"
             android:grantUriPermissions="true" />
+        <service
+            android:name=".UsbNotificationListener"
+            android:label="USB leválasztás"
+            android:permission="android.permission.BIND_NOTIFICATION_LISTENER_SERVICE"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.service.notification.NotificationListenerService" />
+            </intent-filter>
+        </service>
     </application>
     <!-- Required to query activities that can process text, see:
          https://developer.android.com/training/package-visibility and
