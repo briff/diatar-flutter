@@ -117,6 +117,7 @@ const int _customOrderSetHeaderValue = -3000000;
 const int _customOrderSetValueBase = -2000000;
 
 enum _ProjectionDisplayToggle {
+  songOrder,
   musicPlayback,
   advanceAfterMusic,
   kotta,
@@ -903,11 +904,7 @@ class _DiatarHomePageState extends State<DiatarHomePage> {
           return Stack(
             children: <Widget>[
               Positioned.fill(child: _buildSimpleView(context)),
-              Positioned(
-                right: 12,
-                bottom: 12,
-                child: cameraOverlay,
-              ),
+              Positioned(right: 12, bottom: 12, child: cameraOverlay),
             ],
           );
         },
@@ -992,11 +989,16 @@ class _DiatarHomePageState extends State<DiatarHomePage> {
       onPanUpdate: (DragUpdateDetails details) {
         final Offset pointer = details.globalPosition;
         final Offset start = _cameraDragStartPointer ?? pointer;
-        final double nextW = (_cameraDragInitialSize.width + start.dx - pointer.dx)
-            .clamp(_minCameraViewWidth, _maxCameraViewWidth);
+        final double nextW =
+            (_cameraDragInitialSize.width + start.dx - pointer.dx).clamp(
+              _minCameraViewWidth,
+              _maxCameraViewWidth,
+            );
         final double nextH =
-            (_cameraDragInitialSize.height + start.dy - pointer.dy)
-                .clamp(_minCameraViewHeight, _maxCameraViewHeight);
+            (_cameraDragInitialSize.height + start.dy - pointer.dy).clamp(
+              _minCameraViewHeight,
+              _maxCameraViewHeight,
+            );
         final Size nextSize = Size(nextW, nextH);
         if (_cameraDragSize == nextSize) {
           return;
@@ -1590,6 +1592,7 @@ class _DiatarHomePageState extends State<DiatarHomePage> {
   }
 
   Future<void> _showProjectionDisplayMenu(BuildContext buttonContext) async {
+    final String songOrderTitle = buttonContext.l10n.songOrder;
     final RenderObject? buttonObject = buttonContext.findRenderObject();
     if (buttonObject is! RenderBox) {
       return;
@@ -1617,6 +1620,12 @@ class _DiatarHomePageState extends State<DiatarHomePage> {
             Offset.zero & overlayObject.size,
           ),
           items: <PopupMenuEntry<_ProjectionDisplayToggle>>[
+            PopupMenuItem<_ProjectionDisplayToggle>(
+              value: _ProjectionDisplayToggle.songOrder,
+              enabled: controller.customOrder.isNotEmpty,
+              child: Text(songOrderTitle),
+            ),
+            const PopupMenuDivider(),
             CheckedPopupMenuItem<_ProjectionDisplayToggle>(
               value: _ProjectionDisplayToggle.musicPlayback,
               checked: controller.settings.useSound,
@@ -1661,6 +1670,8 @@ class _DiatarHomePageState extends State<DiatarHomePage> {
     }
 
     switch (selected) {
+      case _ProjectionDisplayToggle.songOrder:
+        await controller.showSongOrder(songOrderTitle);
       case _ProjectionDisplayToggle.musicPlayback:
         await controller.toggleMusicPlayback();
       case _ProjectionDisplayToggle.advanceAfterMusic:
@@ -1808,6 +1819,15 @@ class _DiatarHomePageState extends State<DiatarHomePage> {
     VoidCallback? onPreviewLongPress,
   }) {
     final AppLocalizations l10n = context.l10n;
+    if (controller.songOrderVisible && !controller.liveSubtitlesActive) {
+      return _CustomTextPreview(
+        controller: controller,
+        title: controller.songOrderTitle ?? l10n.songOrder,
+        lines: controller.songOrderLines,
+        onPreviewTap: onPreviewTap,
+        onPreviewLongPress: onPreviewLongPress,
+      );
+    }
     final CustomOrderEntry? projectedCustom =
         controller.projectedCustomOrderEntry;
 
@@ -1983,9 +2003,9 @@ class _DiatarHomePageState extends State<DiatarHomePage> {
     final String message = error == null
         ? l10n.wolMessageSent(sent)
         : l10n.wolMessageError(error);
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(message)),
-    );
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(message)));
   }
 
   Future<void> _toggleLiveSubtitles(BuildContext context) async {

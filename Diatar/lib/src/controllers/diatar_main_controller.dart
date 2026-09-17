@@ -286,6 +286,8 @@ class DiatarMainController extends ChangeNotifier {
   bool _musicSelectionConfigured = false;
   List<CustomOrderEntry> _customOrder = <CustomOrderEntry>[];
   bool customOrderActive = false;
+  String? _songOrderTitle;
+  List<String> _songOrderLines = const <String>[];
   int _customOrderCursor = -1;
   int _projectedCustomCursor = -1;
   String? _lastImportedCustomOrderBaseName;
@@ -503,6 +505,7 @@ class DiatarMainController extends ChangeNotifier {
     if (index == _activeOrderSetIndex && _activeOrderSetIndex >= 0) {
       return;
     }
+    _dismissSongOrderPreview();
     _persistActiveSetToSets();
     _activeOrderSetIndex = index;
     final CustomOrderSet set = _customOrderSets[index];
@@ -606,6 +609,7 @@ class DiatarMainController extends ChangeNotifier {
     if (index < 0 || index >= _customOrderSets.length) {
       return;
     }
+    _dismissSongOrderPreview();
     final bool currentlyEnabled = _customOrderSets[index].enabled;
     _customOrderSets[index] = _customOrderSets[index].copyWith(
       enabled: !currentlyEnabled,
@@ -623,6 +627,7 @@ class DiatarMainController extends ChangeNotifier {
     if (index < 0 || index >= _customOrderSets.length) {
       return;
     }
+    _dismissSongOrderPreview();
     final bool wasActive = index == _activeOrderSetIndex;
     _customOrderSets.removeAt(index);
     if (_customOrderSets.isEmpty) {
@@ -701,6 +706,7 @@ class DiatarMainController extends ChangeNotifier {
     if (trimmed.isEmpty) {
       return;
     }
+    _dismissSongOrderPreview();
     _persistActiveSetToSets();
     final CustomOrderSet newSet = CustomOrderSet(
       id: _nextCustomOrderSetId(),
@@ -2371,6 +2377,145 @@ class DiatarMainController extends ChangeNotifier {
 
   List<CustomOrderEntry> get customOrder =>
       List<CustomOrderEntry>.unmodifiable(_customOrder);
+  bool get songOrderVisible => _songOrderTitle != null;
+  String? get songOrderTitle => _songOrderTitle;
+  List<String> get songOrderLines => List<String>.unmodifiable(_songOrderLines);
+
+  bool _dismissSongOrderPreview() {
+    if (!songOrderVisible) {
+      return false;
+    }
+    _songOrderTitle = null;
+    _songOrderLines = const <String>[];
+    return true;
+  }
+
+  @visibleForTesting
+  static List<String> buildSongOrderLines({
+    required List<CustomOrderEntry> entries,
+    required List<DtxBook> books,
+  }) {
+    final List<String> lines = <String>[];
+    String? previousBookFile;
+    int? previousSongIndex;
+
+    void endSongGroup() {
+      previousBookFile = null;
+      previousSongIndex = null;
+    }
+
+    for (final CustomOrderEntry entry in entries) {
+      if (entry.skipped) {
+        continue;
+      }
+      if (entry.isSeparator) {
+        endSongGroup();
+        continue;
+      }
+      if (entry.isCustomImage) {
+        final List<String> segments = (entry.customImagePath ?? '')
+            .trim()
+            .replaceAll('\\', '/')
+            .split('/')
+            .where((String segment) => segment.isNotEmpty)
+            .toList();
+        final String imageName = segments.isEmpty
+            ? entry.label.trim()
+            : segments.last;
+        if (imageName.isNotEmpty) {
+          lines.add(imageName);
+        }
+        endSongGroup();
+        continue;
+      }
+      if (!entry.isSongEntry) {
+        endSongGroup();
+        continue;
+      }
+
+      final int bookIndex = books.indexWhere(
+        (DtxBook book) => book.fileName == entry.fileName,
+      );
+      if (bookIndex < 0) {
+        endSongGroup();
+        continue;
+      }
+      final DtxBook book = books[bookIndex];
+      if (entry.songIndex < 0 || entry.songIndex >= book.songs.length) {
+        endSongGroup();
+        continue;
+      }
+      final DtxSong song = book.songs[entry.songIndex];
+      final int verseIndex = entry.verseIndex.clamp(
+        0,
+        song.verses.isEmpty ? 0 : song.verses.length - 1,
+      );
+      final String verse = song.verses.isEmpty
+          ? ''
+          : song.verses[verseIndex].name.trim();
+      final bool continuesPreviousSong =
+          previousBookFile == entry.fileName &&
+          previousSongIndex == entry.songIndex;
+      if (continuesPreviousSong) {
+        if (verse.isNotEmpty) {
+          lines[lines.length - 1] = '${lines.last}, $verse';
+        }
+      } else {
+        final String songLabel = '${book.displayName}: ${song.title}';
+        lines.add(verse.isEmpty ? songLabel : '$songLabel/$verse');
+      }
+      previousBookFile = entry.fileName;
+      previousSongIndex = entry.songIndex;
+    }
+    return lines;
+  }
+
+  Future<void> showSongOrder(String title) async {
+    if (_customOrder.isEmpty) {
+      return;
+    }
+    _songOrderTitle = title;
+    _songOrderLines = buildSongOrderLines(entries: _customOrder, books: books);
+    highPos = 0;
+    _resetHighlightRenderState();
+    _projectedCustomCursor = -1;
+    _clearCustomMergeSoundSequence();
+    globals = globals.copyWith(projecting: showing, wordToHighlight: 0);
+    if (_projectionOutputLocked) {
+      notifyListeners();
+      return;
+    }
+    final List<String> payloadLines = _songOrderLines.isEmpty
+        ? const <String>['']
+        : _songOrderLines;
+    await _desktopProjectorBridge.sendState(
+      globals,
+      showing: showing,
+      wordToHighlight: 0,
+    );
+    await _desktopProjectorBridge.sendText(title: title, lines: payloadLines);
+    if (mqttActive) {
+      await _mqttSender.sendState(
+        globals,
+        showing: showing,
+        wordToHighlight: 0,
+      );
+      await _mqttSender.sendText(title: title, lines: payloadLines);
+    }
+    if (tcpConfigured) {
+      await _sender.sendState(globals, showing: showing, wordToHighlight: 0);
+      await _sender.sendText(
+        title: title,
+        lines: payloadLines,
+        wordToHighlight: 0,
+      );
+      await _sender.sendIdle();
+    }
+    await _desktopProjectorBridge.sendIdle();
+    _refreshSenderFlags();
+    notifyListeners();
+  }
+
   int get customOrderCursor => _customOrderCursor;
   int get selectedCustomOrderCursor {
     if (_projectedCustomCursor >= 0 &&
@@ -2505,6 +2650,7 @@ class DiatarMainController extends ChangeNotifier {
     if (index < 0 || index >= _customOrder.length) {
       return;
     }
+    _dismissSongOrderPreview();
     _selectByCustomOrderCursor(index, sync: true);
   }
 
@@ -2512,6 +2658,7 @@ class DiatarMainController extends ChangeNotifier {
     if (index < 0 || index >= _customOrder.length) {
       return;
     }
+    _dismissSongOrderPreview();
     customOrderActive = _customOrder.isNotEmpty;
     _diaVirtualBookSelected = _customOrder.isNotEmpty;
     _selectByCustomOrderCursor(index, sync: true);
@@ -2521,6 +2668,7 @@ class DiatarMainController extends ChangeNotifier {
     if (index < 0 || index >= _customOrder.length) {
       return;
     }
+    final bool songOrderWasVisible = _dismissSongOrderPreview();
     customOrderActive = _customOrder.isNotEmpty;
     _diaVirtualBookSelected = _customOrder.isNotEmpty;
     _customOrderCursor = index;
@@ -2528,6 +2676,9 @@ class DiatarMainController extends ChangeNotifier {
       'label': _customOrder[index].label,
     });
     notifyListeners();
+    if (songOrderWasVisible) {
+      unawaited(_syncCurrentDia());
+    }
   }
 
   void selectDiaVirtualBook() {
@@ -2757,6 +2908,8 @@ class DiatarMainController extends ChangeNotifier {
     bool syncProjection = true,
     bool markModified = true,
   }) async {
+    final bool shouldSyncProjection =
+        syncProjection || _dismissSongOrderPreview();
     _ensureCustomOrderSet();
     final int previousCursor = _customOrderCursor;
     final CustomOrderEntry? previousEntry =
@@ -2791,13 +2944,13 @@ class DiatarMainController extends ChangeNotifier {
       } else {
         _customOrderCursor = -1;
       }
-      if (syncProjection && _customOrderCursor >= 0) {
+      if (shouldSyncProjection && _customOrderCursor >= 0) {
         _selectByCustomOrderCursor(_customOrderCursor, sync: false);
       }
       await _persistCurrentCustomOrder();
       _persistActiveSetToSets();
       await _persistAllSets();
-      if (syncProjection &&
+      if (shouldSyncProjection &&
           _customOrderCursor >= 0 &&
           _customOrderCursor < _customOrder.length &&
           !_customOrder[_customOrderCursor].isSongEntry) {
@@ -2805,7 +2958,7 @@ class DiatarMainController extends ChangeNotifier {
           _customOrder[_customOrderCursor],
           cursor: _customOrderCursor,
         );
-      } else if (syncProjection) {
+      } else if (shouldSyncProjection) {
         await _syncCurrentDia();
       } else {
         notifyListeners();
@@ -2821,6 +2974,7 @@ class DiatarMainController extends ChangeNotifier {
   }
 
   Future<void> syncProjectionToCurrentDia() async {
+    _dismissSongOrderPreview();
     _projectedCustomCursor = -1;
     if (customOrderActive &&
         _customOrderCursor >= 0 &&
@@ -4077,6 +4231,7 @@ class DiatarMainController extends ChangeNotifier {
       return;
     }
 
+    _dismissSongOrderPreview();
     if (customOrderActive) {
       _persistActiveSetToSets();
       customOrderActive = false;
@@ -4130,6 +4285,7 @@ class DiatarMainController extends ChangeNotifier {
     if (s == null || max < 0) {
       return;
     }
+    _dismissSongOrderPreview();
     songIndex = value.clamp(0, max);
     verseIndex = 0;
     highPos = 0;
@@ -4175,6 +4331,7 @@ class DiatarMainController extends ChangeNotifier {
     if (s == null || s.verses.isEmpty) {
       return;
     }
+    _dismissSongOrderPreview();
     verseIndex = value.clamp(0, s.verses.length - 1);
     highPos = 0;
     _resetHighlightRenderState();
@@ -4207,6 +4364,7 @@ class DiatarMainController extends ChangeNotifier {
         ? 0
         : targetVerseIndex.clamp(0, s.verses.length - 1);
 
+    _dismissSongOrderPreview();
     _diaVirtualBookSelected = false;
     bookIndex = bIx;
     songIndex = sIx;
@@ -4231,6 +4389,10 @@ class DiatarMainController extends ChangeNotifier {
   }
 
   void nextVerse() {
+    if (_dismissSongOrderPreview()) {
+      unawaited(_syncCurrentDia());
+      return;
+    }
     if (diaVirtualBookSelected) {
       final int exactIdx = _currentCustomOrderIndex();
       if (exactIdx >= 0) {
@@ -4298,6 +4460,10 @@ class DiatarMainController extends ChangeNotifier {
   }
 
   void prevVerse() {
+    if (_dismissSongOrderPreview()) {
+      unawaited(_syncCurrentDia());
+      return;
+    }
     if (diaVirtualBookSelected) {
       final int exactIdx = _currentCustomOrderIndex();
       if (exactIdx >= 0) {
@@ -4364,6 +4530,10 @@ class DiatarMainController extends ChangeNotifier {
   }
 
   void nextSong() {
+    if (_dismissSongOrderPreview()) {
+      unawaited(_syncCurrentDia());
+      return;
+    }
     if (diaVirtualBookSelected) {
       final int? nextIdx = _findNextDiaSongGroupStart();
       if (nextIdx == null) {
@@ -4383,6 +4553,10 @@ class DiatarMainController extends ChangeNotifier {
   }
 
   void prevSong() {
+    if (_dismissSongOrderPreview()) {
+      unawaited(_syncCurrentDia());
+      return;
+    }
     if (diaVirtualBookSelected) {
       final int currentGroupStart = _currentDiaGroupStartIndex();
       final int currentIndex = _currentCustomOrderIndex();
@@ -4956,6 +5130,7 @@ class DiatarMainController extends ChangeNotifier {
   }
 
   Future<void> _appendCustomOrderEntry(CustomOrderEntry entry) async {
+    _dismissSongOrderPreview();
     _customOrder = <CustomOrderEntry>[..._customOrder, entry];
     customOrderActive = _customOrder.isNotEmpty;
     _customOrderCursor = _customOrder.length - 1;

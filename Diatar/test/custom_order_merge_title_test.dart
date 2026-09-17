@@ -57,6 +57,108 @@ void main() {
       expect(merged, 'Kötet: ének/vers1, vers2');
     });
 
+    group('song order summary', () {
+      test('groups consecutive verses and omits skipped entries', () {
+        const List<DtxBook> books = <DtxBook>[
+          DtxBook(
+            fileName: 'book.dtx',
+            title: 'Teljes kötetnév',
+            nick: 'Rövid',
+            songs: <DtxSong>[
+              DtxSong(
+                title: '42',
+                verses: <DtxVerse>[
+                  DtxVerse(name: '1', lines: <String>[]),
+                  DtxVerse(name: '2', lines: <String>[]),
+                ],
+              ),
+            ],
+          ),
+        ];
+        const List<CustomOrderEntry> entries = <CustomOrderEntry>[
+          CustomOrderEntry(
+            fileName: 'book.dtx',
+            songIndex: 0,
+            verseIndex: 0,
+            label: '',
+          ),
+          CustomOrderEntry(
+            fileName: 'book.dtx',
+            songIndex: 0,
+            verseIndex: 1,
+            label: '',
+          ),
+          CustomOrderEntry(
+            fileName: '__custom_image__',
+            songIndex: -2,
+            verseIndex: 0,
+            label: '',
+            customImagePath: r'C:\images\cover.png',
+            customType: 'image',
+          ),
+          CustomOrderEntry(
+            fileName: 'book.dtx',
+            songIndex: 0,
+            verseIndex: 0,
+            label: '',
+            skipped: true,
+          ),
+          CustomOrderEntry(
+            fileName: 'book.dtx',
+            songIndex: 0,
+            verseIndex: 0,
+            label: '',
+          ),
+        ];
+
+        expect(
+          DiatarMainController.buildSongOrderLines(
+            entries: entries,
+            books: books,
+          ),
+          <String>['Rövid: 42/1, 2', 'cover.png', 'Rövid: 42/1'],
+        );
+      });
+
+      test('starts a new line after a separator', () {
+        const List<DtxBook> books = <DtxBook>[
+          DtxBook(
+            fileName: 'book.dtx',
+            title: 'Kötet',
+            songs: <DtxSong>[
+              DtxSong(
+                title: 'Ének',
+                verses: <DtxVerse>[DtxVerse(name: '1', lines: <String>[])],
+              ),
+            ],
+          ),
+        ];
+        const CustomOrderEntry song = CustomOrderEntry(
+          fileName: 'book.dtx',
+          songIndex: 0,
+          verseIndex: 0,
+          label: '',
+        );
+
+        expect(
+          DiatarMainController.buildSongOrderLines(
+            entries: <CustomOrderEntry>[
+              song,
+              CustomOrderEntry(
+                fileName: CustomOrderEntry.separatorFileName,
+                songIndex: CustomOrderEntry.separatorSongIndex,
+                verseIndex: 0,
+                label: '',
+              ),
+              song,
+            ],
+            books: books,
+          ),
+          <String>['Kötet: Ének/1', 'Kötet: Ének/1'],
+        );
+      });
+    });
+
     group('custom order skipped slides', () {
       const CustomOrderNavigationPolicy navigation =
           CustomOrderNavigationPolicy();
@@ -655,7 +757,7 @@ class _BlockingMqttSender extends MqttSenderService {
 
 class _TrackingTcpSender extends TcpSenderService {
   _TrackingTcpSender()
-      : super(onStatusChanged: (_) {}, onError: (_, __) {}, onCamera: (_, _) {});
+    : super(onStatusChanged: (_) {}, onError: (_, __) {}, onCamera: (_, _) {});
 
   bool restartCalled = false;
 

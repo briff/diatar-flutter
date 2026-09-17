@@ -4247,6 +4247,12 @@ abstract class AppLocalizations {
   /// **'Hátra irány'**
   String get picPlcLedBackward;
 
+  /// No description provided for @songOrder.
+  ///
+  /// In hu, this message translates to:
+  /// **'Énekrend'**
+  String get songOrder;
+
   /// No description provided for @customOrderEmbedImagesTitle.
   ///
   /// In hu, this message translates to:

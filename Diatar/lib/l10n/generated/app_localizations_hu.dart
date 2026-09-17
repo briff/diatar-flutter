@@ -2400,6 +2400,9 @@ class AppLocalizationsHu extends AppLocalizations {
   String get picPlcLedBackward => 'Hátra irány';
 
   @override
+  String get songOrder => 'Énekrend';
+
+  @override
   String get customOrderEmbedImagesTitle => 'Képek beágyazása?';
 
   @override

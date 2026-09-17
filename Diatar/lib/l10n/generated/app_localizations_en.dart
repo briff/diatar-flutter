@@ -2393,6 +2393,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get picPlcLedBackward => 'Backward direction';
 
   @override
+  String get songOrder => 'Song order';
+
+  @override
   String get customOrderEmbedImagesTitle => 'Embed images?';
 
   @override
