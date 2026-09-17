@@ -98,7 +98,7 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
-  String get cameraStreamTitle => 'Camera stream';
+  String get cameraStreamTitle => 'Cantor\'s Eye – Camera stream';
 
   @override
   String get cameraStreamSummary => 'Camera stream enabled';

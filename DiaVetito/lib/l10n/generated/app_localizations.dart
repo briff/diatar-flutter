@@ -239,7 +239,7 @@ abstract class AppLocalizations {
   /// No description provided for @cameraStreamTitle.
   ///
   /// In hu, this message translates to:
-  /// **'Kamera stream'**
+  /// **'Kántorszem – Kamera stream'**
   String get cameraStreamTitle;
 
   /// No description provided for @cameraStreamSummary.

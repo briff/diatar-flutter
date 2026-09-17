@@ -98,7 +98,7 @@ class AppLocalizationsHu extends AppLocalizations {
   }
 
   @override
-  String get cameraStreamTitle => 'Kamera stream';
+  String get cameraStreamTitle => 'Kántorszem – Kamera stream';
 
   @override
   String get cameraStreamSummary => 'Kamera stream engedélyezve';

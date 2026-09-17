@@ -547,6 +547,10 @@ class ProjectionController extends ChangeNotifier {
     }
     if (connected != isConnected) {
       _hasDataForCurrentConnection = false;
+      if (!isConnected) {
+        diaFrame = null;
+        blankFrame = null;
+      }
     }
     connected = isConnected;
     _syncNoConnectionLogo();
