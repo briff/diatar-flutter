@@ -43,3 +43,10 @@ app.*.map.json
 /android/app/debug
 /android/app/profile
 /android/app/release
+
+# libwebrtc prebuilt binaries for the vendored flutter_webrtc patch.
+# patches/flutter_webrtc/third_party/CMakeLists.txt downloads and extracts these
+# at CMake configure time, from the release pinned in libwebrtc_version.ini.
+# They are build outputs, not sources, and the extract step wipes the directory.
+/patches/flutter_webrtc/third_party/downloads/
+/patches/flutter_webrtc/third_party/libwebrtc/
