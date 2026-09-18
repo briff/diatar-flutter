@@ -18,6 +18,7 @@ analyzer:
     - linux/**
     # Standalone example app belonging to the patched dependency.
     - patches/desktop_multi_window/example/**
+    - patches/flutter_webrtc/example/**
 include: package:flutter_lints/flutter.yaml
 
 linter:
