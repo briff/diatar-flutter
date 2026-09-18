@@ -159,10 +159,18 @@ feedback loop — prefer adding a test over launching the app.
   rebuilding.
 - **Vendored patches.** `Diatar/patches/` holds forked copies of
   `flutter_webrtc`, `desktop_multi_window` and `screen_retriever_macos`, wired
-  in via `dependency_overrides`. Their bundled `example/` apps are not part of
-  the build; they are excluded from analysis in `analysis_options.yaml`.
+  in via `dependency_overrides`. Their upstream `example/` apps have been
+  deleted — they are not part of the build; do not restore them when syncing
+  with upstream.
 - **Hungarian is the source language.** `l10n.yaml` sets
   `template-arb-file: app_hu.arb`, so new keys are authored in `app_hu.arb`
   first and mirrored into `app_en.arb`.
+- **Generated code is not committed.** `lib/l10n/generated/` and the
+  `generated_plugin_registrant.*` / `generated_plugins.cmake` files under
+  `linux/`, `macos/` and `windows/` are gitignored in both apps; `flutter pub
+  get` writes all of them, so a fresh checkout will not analyze until you have
+  run it once. The exception is `DiaVetito/tvos/`, whose registrant is written
+  by the `flutter-tvos` fork that only the CI macOS runner has, so it stays
+  checked in.
 - **`HIDDEN.md`** lists UI features currently commented out in
   `home_page.dart`. Check it before concluding a feature is missing.

@@ -35,7 +35,8 @@ Mandatory, and enforced in CI by `.github/workflows/l10n-key-parity.yml`.
   `template-arb-file: app_hu.arb`). Add the key to `app_hu.arb` first, then
   mirror it into `app_en.arb` of the *same* app. A key missing from either
   file fails CI.
-- Never hand-edit `lib/l10n/generated/**`; run `flutter gen-l10n`.
+- `lib/l10n/generated/**` is gitignored and written by `flutter pub get` /
+  `flutter gen-l10n`. Never hand-edit it and never commit it.
 - Adding a screen, dialog, button or title means adding its keys first, then
   referencing them.
 
