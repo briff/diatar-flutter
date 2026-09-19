@@ -17,6 +17,7 @@ class AretinoStyle {
     this.fontFamilyFallback = const <String>[],
     this.noteSpacing = 1.0,
     this.hideRepeatClef = true,
+    this.systemGap = 0.3,
   });
 
   /// Height of the lyric face, in logical pixels.
@@ -43,6 +44,18 @@ class AretinoStyle {
   /// repeated clef is noise; a score can still ask for it back with
   /// `%option: hideRepeatClef=false`.
   final bool hideRepeatClef;
+
+  /// Air between one staff system's lowest ink and the next system's highest,
+  /// as a fraction of [lyricFontSize].
+  ///
+  /// The library's own `staffGap` cannot set this on its own: it measures from
+  /// the lyric line's nominal bottom to the *nominal* top of the next staff,
+  /// which is two staff spaces above the staff itself — room kept for notes
+  /// that may rise over it whether or not any do. Systems are therefore stacked
+  /// on their ink (see [AretinoPicture.inkBounds]) and this is the only gap
+  /// between them, so a system whose music sits low in the staff moves up
+  /// exactly as far as its music allows.
+  final double systemGap;
 
   /// Points per pixel at the library's default 96 dpi.
   static const double _dpi = 96.0;
@@ -89,6 +102,7 @@ class AretinoStyle {
         fontFamilyFallback: fontFamilyFallback,
         noteSpacing: noteSpacing,
         hideRepeatClef: hideRepeatClef,
+        systemGap: systemGap,
       );
 
   @override
@@ -99,6 +113,7 @@ class AretinoStyle {
       other.fontFamily == fontFamily &&
       other.noteSpacing == noteSpacing &&
       other.hideRepeatClef == hideRepeatClef &&
+      other.systemGap == systemGap &&
       listEquals(other.fontFamilyFallback, fontFamilyFallback);
 
   @override
@@ -108,6 +123,7 @@ class AretinoStyle {
         fontFamily,
         noteSpacing,
         hideRepeatClef,
+        systemGap,
         Object.hashAll(fontFamilyFallback),
       );
 }
@@ -117,13 +133,16 @@ class AretinoStyle {
 /// A staff system is the reflow unit, the way a wrapped line is for text
 /// (`plans/aretino-projection-v1.md`, Decision 5), so the existing fit and
 /// scroll behaviour applies to these unchanged.
+///
+/// The stack is built here rather than by whoever paints it, so that the height
+/// the fit loop measures is the height that ends up on the screen.
 @immutable
 class AretinoRendering {
-  const AretinoRendering({
+  AretinoRendering({
     required this.rows,
     required this.style,
     required this.width,
-  });
+  }) : rowTops = _stack(rows, style.systemGap * style.lyricFontSize);
 
   final List<AretinoPicture> rows;
   final AretinoStyle style;
@@ -131,10 +150,25 @@ class AretinoRendering {
   /// The width the score was laid out against.
   final double width;
 
-  double get height =>
-      rows.fold(0.0, (double sum, AretinoPicture r) => sum + r.size.height);
+  /// Where each row's [AretinoPicture.inkBounds] starts in the stack. A painter
+  /// draws row `i` translated so its ink top lands on `rowTops[i]`.
+  final List<double> rowTops;
+
+  double get height => rows.isEmpty
+      ? 0
+      : rowTops.last + rows.last.inkBounds.height;
 
   bool get isEmpty => rows.isEmpty;
+
+  static List<double> _stack(List<AretinoPicture> rows, double gap) {
+    final List<double> tops = <double>[];
+    double y = 0;
+    for (final AretinoPicture row in rows) {
+      tops.add(y);
+      y += row.inkBounds.height + gap;
+    }
+    return List<double>.unmodifiable(tops);
+  }
 }
 
 class AretinoRenderException implements Exception {
@@ -148,11 +182,17 @@ class AretinoRenderException implements Exception {
 
 /// Renders Aretino source through the embedded library.
 ///
-/// Flutter measures every string the layout engine asks about, on every
-/// platform (Decision 3): the engine reports the strings it could not find in
-/// the injected map, this measures them with `TextPainter`, and the render runs
-/// again. Two or three passes settle it, and no JS-to-Dart call happens during
-/// a render.
+/// Flutter measures the width of every string the layout engine asks about, on
+/// every platform (Decision 3): the engine reports the strings it could not
+/// find in the injected map, this measures them with `TextPainter`, and the
+/// render runs again. Two or three passes settle it, and no JS-to-Dart call
+/// happens during a render.
+///
+/// Heights are the library's own business. How closely a lyric line rides under
+/// the music is reckoned from the letters the syllables carry, and the library
+/// does that itself — `TextPainter` could only offer the top of the line box in
+/// its place, which sits a third of an em above the letters and would leave a
+/// visible gap under every staff system.
 class AretinoRenderService {
   AretinoRenderService({AretinoJsEngine? engine})
       : _engine = engine ?? AretinoJsEngine();
@@ -164,11 +204,10 @@ class AretinoRenderService {
 
   final AretinoJsEngine _engine;
 
-  /// Widths and ascents carry over between renders: the same syllables recur
-  /// across sizes only when the size matches, and the key includes the size, so
-  /// this is a pure win.
+  /// Widths carry over between renders: the same syllables recur across sizes
+  /// only when the size matches, and the key includes the size, so this is a
+  /// pure win.
   final Map<String, double> _widths = <String, double>{};
-  final Map<String, double> _ascents = <String, double>{};
 
   int _renderCount = 0;
 
@@ -258,10 +297,8 @@ class AretinoRenderService {
       );
       final List<Object?> missingWidths =
           (reply['missingWidths'] as List<Object?>?) ?? const <Object?>[];
-      final List<Object?> missingAscents =
-          (reply['missingAscents'] as List<Object?>?) ?? const <Object?>[];
 
-      if (missingWidths.isEmpty && missingAscents.isEmpty) {
+      if (missingWidths.isEmpty) {
         final List<Object?> rows =
             (reply['rows'] as List<Object?>?) ?? const <Object?>[];
         return rows.cast<String>();
@@ -271,11 +308,6 @@ class AretinoRenderService {
         final Map<String, Object?> m = entry! as Map<String, Object?>;
         _widths[m['key']! as String] =
             measureAretinoText(m['text']! as String, _styleOf(m, style));
-      }
-      for (final Object? entry in missingAscents) {
-        final Map<String, Object?> m = entry! as Map<String, Object?>;
-        _ascents[m['key']! as String] =
-            measureAretinoAscent(m['text']! as String, _styleOf(m, style));
       }
     }
     throw AretinoRenderException(
@@ -301,7 +333,6 @@ class AretinoRenderService {
       'source': source,
       'options': options,
       'widths': _widths,
-      'ascents': _ascents,
       'split': true,
     });
     final Map<String, Object?> reply =

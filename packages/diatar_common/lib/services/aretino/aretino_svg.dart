@@ -25,17 +25,61 @@ const int _inkArgb = 0xFF000000;
 /// A parsed SVG document: drawing operations in paint order, plus the logical
 /// size of its `viewBox`.
 class AretinoPicture {
-  const AretinoPicture({
+  AretinoPicture({
     required this.ops,
     required this.viewBox,
-  });
+  }) : inkBounds = _inkBoundsOf(ops) ?? viewBox;
 
   final List<AretinoOp> ops;
   final Rect viewBox;
 
+  /// What the staff system actually draws, which is less than [viewBox]: the
+  /// library reserves a nominal two staff spaces above every staff for the
+  /// notes that may rise over it, and leaves the lyric descender's worth of
+  /// room below. Systems are stacked on this rather than on the viewBox, so the
+  /// air between one system's lyrics and the next system's music is the gap
+  /// asked for and nothing more.
+  final Rect inkBounds;
+
   Size get size => viewBox.size;
 
   bool get isEmpty => ops.isEmpty;
+
+  static Rect? _inkBoundsOf(List<AretinoOp> ops) {
+    Rect? bounds;
+    for (final AretinoOp op in ops) {
+      final Rect? local = op.localBounds();
+      if (local == null || local.isEmpty) {
+        continue;
+      }
+      final Rect r = _transformRect(op.transform, local);
+      bounds = bounds == null ? r : bounds.expandToInclude(r);
+    }
+    return bounds;
+  }
+
+  /// The library emits only translate, scale and rotate, so the four corners
+  /// bound the transformed rectangle exactly.
+  static Rect _transformRect(Float64List m, Rect r) {
+    double minX = double.infinity;
+    double minY = double.infinity;
+    double maxX = double.negativeInfinity;
+    double maxY = double.negativeInfinity;
+    for (final Offset corner in <Offset>[
+      r.topLeft,
+      r.topRight,
+      r.bottomLeft,
+      r.bottomRight,
+    ]) {
+      final double x = m[0] * corner.dx + m[4] * corner.dy + m[12];
+      final double y = m[1] * corner.dx + m[5] * corner.dy + m[13];
+      minX = math.min(minX, x);
+      minY = math.min(minY, y);
+      maxX = math.max(maxX, x);
+      maxY = math.max(maxY, y);
+    }
+    return Rect.fromLTRB(minX, minY, maxX, maxY);
+  }
 
   /// Draws into [canvas] at logical coordinates, with `#000` ink replaced by
   /// [inkColor].
@@ -56,6 +100,9 @@ abstract class AretinoOp {
   final Float64List transform;
 
   void paint(Canvas canvas, Color inkColor);
+
+  /// What this operation inks, before [transform] — null when it inks nothing.
+  Rect? localBounds();
 
   static Color _resolve(AretinoInk color, Color inkColor) =>
       color.isInk ? inkColor : color.value;
@@ -88,6 +135,10 @@ class AretinoLineOp extends AretinoOp {
         ..strokeCap = cap,
     );
   }
+
+  @override
+  Rect? localBounds() =>
+      Rect.fromPoints(from, to).inflate(strokeWidth / 2);
 }
 
 class AretinoOvalOp extends AretinoOp {
@@ -115,6 +166,13 @@ class AretinoOvalOp extends AretinoOp {
       Paint()..color = AretinoOp._resolve(fill, inkColor),
     );
   }
+
+  @override
+  Rect? localBounds() => Rect.fromCenter(
+        center: center,
+        width: radiusX * 2,
+        height: radiusY * 2,
+      );
 }
 
 class AretinoPathOp extends AretinoOp {
@@ -148,6 +206,15 @@ class AretinoPathOp extends AretinoOp {
       );
     }
   }
+
+  @override
+  Rect? localBounds() {
+    if (fill == null && stroke == null) {
+      return null;
+    }
+    final Rect bounds = path.getBounds();
+    return stroke == null ? bounds : bounds.inflate(strokeWidth / 2);
+  }
 }
 
 /// A `<text>` element, laid out by `TextPainter` rather than by the SVG stack.
@@ -169,8 +236,22 @@ class AretinoTextOp extends AretinoOp {
 
   @override
   void paint(Canvas canvas, Color inkColor) {
+    final TextPainter tp = _layout(inkColor);
+    tp.paint(canvas, _origin(tp));
+    tp.dispose();
+  }
+
+  @override
+  Rect? localBounds() {
+    final TextPainter tp = _layout(const Color(0xFF000000));
+    final Rect bounds = _origin(tp) & tp.size;
+    tp.dispose();
+    return bounds;
+  }
+
+  TextPainter _layout(Color inkColor) {
     final Color base = AretinoOp._resolve(fill, inkColor);
-    final TextPainter tp = TextPainter(
+    return TextPainter(
       text: TextSpan(
         children: <InlineSpan>[
           for (final AretinoTextRun run in spans)
@@ -184,12 +265,16 @@ class AretinoTextOp extends AretinoOp {
       ),
       textDirection: TextDirection.ltr,
     )..layout();
+  }
+
+  /// Where the laid-out line box goes, so that its alphabetic baseline lands on
+  /// [baselineY] and it sits at [anchorX] the way `text-anchor` asks.
+  Offset _origin(TextPainter tp) {
     final double baseline =
         tp.computeDistanceToActualBaseline(TextBaseline.alphabetic);
     final double left =
         anchor == TextAlign.center ? anchorX - tp.width / 2 : anchorX;
-    tp.paint(canvas, Offset(left, baselineY - baseline));
-    tp.dispose();
+    return Offset(left, baselineY - baseline);
   }
 }
 
@@ -264,33 +349,6 @@ double measureAretinoText(String text, AretinoTextStyle style) {
   final double width = tp.width;
   tp.dispose();
   return width;
-}
-
-/// Distance from the baseline to the top of the line box — the library hangs
-/// the first lyric line of a staff system from this.
-///
-/// A browser answers the same question with `actualBoundingBoxAscent`, the ink
-/// the string really contains, so that a row of short lower-case syllables
-/// rides closer to the music than one carrying capitals. Flutter exposes no ink
-/// metric, so this returns the font ascent instead — which is exactly the
-/// fallback the library itself takes when a browser has no
-/// `actualBoundingBoxAscent` either. The consequence is that clearance is
-/// reckoned per font size rather than per string: slightly more air under a row
-/// of lower-case syllables than an engraver would set, and never less than the
-/// letters need. The same value is used when the text is drawn, so measurement
-/// and painting cannot disagree.
-double measureAretinoAscent(String text, AretinoTextStyle style) {
-  if (text.isEmpty) {
-    return 0;
-  }
-  final TextPainter tp = TextPainter(
-    text: TextSpan(text: text, style: style.toTextStyle(const Color(0xFF000000))),
-    textDirection: TextDirection.ltr,
-  )..layout();
-  final double ascent =
-      tp.computeDistanceToActualBaseline(TextBaseline.alphabetic);
-  tp.dispose();
-  return ascent;
 }
 
 // ---------------------------------------------------------------------------

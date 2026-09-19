@@ -608,18 +608,23 @@ class ProjectorPainter extends CustomPainter {
         (globals.vCenter
             ? math.max(0, (target.height - contentHeight) / 2)
             : 0);
-    for (final AretinoPicture row in rendering.rows) {
+    for (int i = 0; i < rendering.rows.length; i++) {
+      final AretinoPicture row = rendering.rows[i];
       final double x = globals.hCenter
           ? (size.width - row.size.width) / 2
           : globals.leftIndent.toDouble();
       canvas.save();
-      // Row 0's viewBox can start above y=0 when a high note or a header
-      // reaches over the staff, and later rows carry their own offset, so the
-      // stack is laid out from each row's own origin.
-      canvas.translate(x - row.viewBox.left, y - row.viewBox.top);
+      // Horizontally each row keeps the width it was laid out against, so the
+      // systems stay aligned with one another. Vertically they are stacked on
+      // their ink, since the room the library reserves above a staff for notes
+      // that may rise over it would otherwise show up as a gap under the
+      // previous system's lyrics.
+      canvas.translate(
+        x - row.viewBox.left,
+        y + rendering.rowTops[i] - row.inkBounds.top,
+      );
       row.paint(canvas, inkColor: globals.txtColor);
       canvas.restore();
-      y += row.size.height;
     }
   }
 

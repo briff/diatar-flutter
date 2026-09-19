@@ -5292,9 +5292,6 @@ var Aretino = (() => {
   function approximateWidth(text, fontSize, bold, italic) {
     return text.length * fontSize * 0.55 * (bold ? 1.1 : 1) * (italic ? 0.95 : 1);
   }
-  function approximateAscent(text, fontSize) {
-    return fontSize * 0.75;
-  }
   function makeMeasure(known, missing, approximate) {
     return (text, fontSize, fontFamily, bold, italic) => {
       if (text === "") return 0;
@@ -5315,19 +5312,15 @@ var Aretino = (() => {
       return JSON.stringify({ ok: false, error: "bad args: " + e });
     }
     const widths = args.widths || {};
-    const ascents = args.ascents || {};
     const missingWidths = {};
-    const missingAscents = {};
     const options = Object.assign({}, args.options, {
-      measureText: makeMeasure(widths, missingWidths, approximateWidth),
-      measureAscent: makeMeasure(ascents, missingAscents, approximateAscent)
+      measureText: makeMeasure(widths, missingWidths, approximateWidth)
     });
     try {
       const svg = renderAretino(args.source, options);
       const result = {
         ok: true,
-        missingWidths: Object.values(missingWidths),
-        missingAscents: Object.values(missingAscents)
+        missingWidths: Object.values(missingWidths)
       };
       if (args.split) {
         result.rows = splitRowSVGs(svg);

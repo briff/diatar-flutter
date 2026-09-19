@@ -147,6 +147,22 @@ void main() {
       );
     });
 
+    test('the ink is tighter than the viewBox, and holds every op', () {
+      final AretinoPicture picture =
+          parseAretinoSvg(svg, defaultTextStyle: _style);
+
+      // The library reserves two staff spaces over the staff for notes that may
+      // rise above it; this row has none that high, so its ink starts lower.
+      expect(picture.inkBounds.top, greaterThan(picture.viewBox.top));
+      expect(picture.inkBounds.height, lessThan(picture.viewBox.height));
+
+      // The lyrics are the lowest ink, and the staff lines the widest.
+      final AretinoTextOp lastSyllable =
+          picture.ops.whereType<AretinoTextOp>().last;
+      expect(picture.inkBounds.bottom, greaterThan(lastSyllable.baselineY));
+      expect(picture.inkBounds.width, greaterThan(0));
+    });
+
     test('paints, and honours the projector text colour', () {
       final AretinoPicture picture =
           parseAretinoSvg(svg, defaultTextStyle: _style);
@@ -160,7 +176,6 @@ void main() {
   group('measurement', () {
     test('an empty string measures zero', () {
       expect(measureAretinoText('', _style), 0);
-      expect(measureAretinoAscent('', _style), 0);
     });
 
     test('a wider string measures wider, and scales with the size', () {
@@ -172,17 +187,6 @@ void main() {
         measureAretinoText('Alleluja', _style.scaled(2)),
         greaterThan(measureAretinoText('Alleluja', _style)),
       );
-    });
-
-    test('the ascent is the font ascent, and scales with the size', () {
-      // Flutter has no ink metric, so clearance is reckoned per font size and
-      // not per string — a capital and an x-height letter measure the same.
-      // See measureAretinoAscent.
-      final double ascent = measureAretinoAscent('a', _style);
-      expect(ascent, greaterThan(0));
-      expect(measureAretinoAscent('A', _style), ascent);
-      expect(measureAretinoAscent('Á', _style), ascent);
-      expect(measureAretinoAscent('a', _style.scaled(2)), 2 * ascent);
     });
   });
 }

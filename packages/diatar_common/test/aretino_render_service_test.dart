@@ -1,7 +1,10 @@
 import 'dart:convert';
+import 'dart:typed_data';
 
 import 'package:diatar_common/services/aretino/aretino_js_engine.dart';
 import 'package:diatar_common/services/aretino/aretino_render_service.dart';
+import 'package:diatar_common/services/aretino/aretino_svg.dart';
+import 'package:flutter/painting.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 /// Answers every render with an empty score and remembers what it was asked.
@@ -92,5 +95,67 @@ void main() {
       );
       expect(engine.lastOptions['lyricSize'], 30.0);
     });
+
+    test('widths are measured here, heights are left to the library', () {
+      final _FakeEngine engine = _FakeEngine();
+      AretinoRenderService(engine: engine)
+          .render('c: c4\nw: A-men', width: 800, style: style);
+      // The library hangs the lyrics from the ink the syllables carry. Flutter
+      // could only offer the top of the line box, which sits well above the
+      // letters and would leave a gap under every staff system.
+      expect(engine.calls.last.containsKey('widths'), isTrue);
+      expect(engine.calls.last.containsKey('ascents'), isFalse);
+    });
   });
+
+  group('stacking', () {
+    /// A row whose ink is a rule from [top] to [bottom], inside a viewBox with
+    /// the slack the library leaves above and below a staff system.
+    AretinoPicture row(double top, double bottom) => AretinoPicture(
+          ops: <AretinoOp>[
+            AretinoLineOp(
+              _identity(),
+              from: Offset(0, top),
+              to: Offset(100, bottom),
+              stroke: const AretinoInk(Color(0xFF000000), true),
+              strokeWidth: 0,
+              cap: StrokeCap.butt,
+            ),
+          ],
+          viewBox: Rect.fromLTWH(0, top - 20, 100, (bottom - top) + 32),
+        );
+
+    test('systems are spaced by their ink, not by their viewBox', () {
+      const AretinoStyle style = AretinoStyle(lyricFontSize: 40, systemGap: 0.3);
+      final AretinoRendering rendering = AretinoRendering(
+        rows: <AretinoPicture>[row(100, 200), row(300, 360)],
+        style: style,
+        width: 800,
+      );
+
+      // 12 px of gap — 0.3 of a 40 px lyric — and nothing else between the ink
+      // of one system and the ink of the next.
+      expect(rendering.rowTops, <double>[0, 112]);
+      expect(rendering.height, 112 + 60);
+    });
+
+    test('a score with no rows has no height', () {
+      final AretinoRendering rendering = AretinoRendering(
+        rows: const <AretinoPicture>[],
+        style: const AretinoStyle(lyricFontSize: 40),
+        width: 800,
+      );
+      expect(rendering.isEmpty, isTrue);
+      expect(rendering.height, 0);
+    });
+  });
+}
+
+Float64List _identity() {
+  final Float64List m = Float64List(16);
+  m[0] = 1;
+  m[5] = 1;
+  m[10] = 1;
+  m[15] = 1;
+  return m;
 }
