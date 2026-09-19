@@ -12,48 +12,59 @@ import 'aretino_svg.dart';
 class AretinoStyle {
   const AretinoStyle({
     required this.lyricFontSize,
-    this.notationScale = 0.5,
-    this.fontFamily = _defaultFontFamily,
-    this.fontFamilyFallback = _defaultFontFamilyFallback,
+    this.notationScale = 0.25,
+    this.fontFamily,
+    this.fontFamilyFallback = const <String>[],
     this.noteSpacing = 1.0,
+    this.hideRepeatClef = true,
   });
-
-  /// The library's own default face. Windows and macOS have Palatino; elsewhere
-  /// the fallback chain decides. Layout and painting use the same face either
-  /// way, so a score is self-consistent on any one device — but two devices
-  /// with different faces will break lines differently, which is why a bundled
-  /// face is the next step here.
-  static const String _defaultFontFamily = 'Palatino Linotype';
-  static const List<String> _defaultFontFamilyFallback = <String>[
-    'Book Antiqua',
-    'Palatino',
-    'serif',
-  ];
 
   /// Height of the lyric face, in logical pixels.
   final double lyricFontSize;
 
-  /// One staff space as a fraction of [lyricFontSize]. The library's defaults
-  /// (1.75 mm staff space against 10 pt lyrics) work out to almost exactly 0.5,
-  /// so that is the default here too.
+  /// One staff space as a fraction of [lyricFontSize]. The library's own
+  /// defaults (1.75 mm staff space against 10 pt lyrics) work out to almost
+  /// exactly 0.5; against projected lyrics that staff is twice as tall as it
+  /// needs to be, so half of it is the default here.
   final double notationScale;
 
-  final String fontFamily;
+  /// The lyric face. Null — the default — is the face the rest of the
+  /// projection is drawn with: whatever the platform gives a [TextStyle] that
+  /// names no family. Measurement and painting both go through [textStyle], so
+  /// the two cannot disagree whatever the platform picks.
+  final String? fontFamily;
   final List<String> fontFamilyFallback;
 
   /// Multiplier on the horizontal advance between neumes.
   final double noteSpacing;
+
+  /// Draw the clef on the first staff system only. A projected chant is one
+  /// verse broken over a few systems rather than a page of music, so the
+  /// repeated clef is noise; a score can still ask for it back with
+  /// `%option: hideRepeatClef=false`.
+  final bool hideRepeatClef;
 
   /// Points per pixel at the library's default 96 dpi.
   static const double _dpi = 96.0;
 
   double get _staffSpaceMm => lyricFontSize * notationScale * 25.4 / _dpi;
 
-  /// The `font-family` string handed to the renderer, and therefore the one
-  /// that comes back in the SVG's `<text>` elements.
-  String get cssFontFamily => <String>[fontFamily, ...fontFamilyFallback]
-      .map((String f) => f.contains(' ') ? "'$f'" : f)
-      .join(', ');
+  /// The `font-family` string handed to the renderer. It comes back in the
+  /// SVG's `<text>` elements, but nothing reads it there: every string is
+  /// measured on the Dart side with [textStyle], and [parseAretinoSvg] paints
+  /// with that same style. Inside the library it is only a measurement key.
+  String get cssFontFamily {
+    final List<String> families = <String>[
+      if (fontFamily != null) fontFamily!,
+      ...fontFamilyFallback,
+    ];
+    if (families.isEmpty) {
+      return 'sans-serif';
+    }
+    return families
+        .map((String f) => f.contains(' ') ? "'$f'" : f)
+        .join(', ');
+  }
 
   AretinoTextStyle get textStyle => AretinoTextStyle(
         fontSize: lyricFontSize,
@@ -68,6 +79,7 @@ class AretinoStyle {
         'lyricSize': lyricFontSize * 72.0 / _dpi,
         'textFont': cssFontFamily,
         'noteSpacing': noteSpacing,
+        'hideRepeatClef': hideRepeatClef,
       };
 
   AretinoStyle withLyricFontSize(double size) => AretinoStyle(
@@ -76,6 +88,7 @@ class AretinoStyle {
         fontFamily: fontFamily,
         fontFamilyFallback: fontFamilyFallback,
         noteSpacing: noteSpacing,
+        hideRepeatClef: hideRepeatClef,
       );
 
   @override
@@ -85,6 +98,7 @@ class AretinoStyle {
       other.notationScale == notationScale &&
       other.fontFamily == fontFamily &&
       other.noteSpacing == noteSpacing &&
+      other.hideRepeatClef == hideRepeatClef &&
       listEquals(other.fontFamilyFallback, fontFamilyFallback);
 
   @override
@@ -93,6 +107,7 @@ class AretinoStyle {
         notationScale,
         fontFamily,
         noteSpacing,
+        hideRepeatClef,
         Object.hashAll(fontFamilyFallback),
       );
 }
@@ -213,15 +228,33 @@ class AretinoRenderService {
     return last!;
   }
 
+  /// Options that are ours to decide only until a score says otherwise.
+  ///
+  /// The library merges `%option:` headers *under* the options it is called
+  /// with, so anything we always pass a score can never override. Projection
+  /// geometry — width, sizes, the face — has to stay ours, but these are
+  /// engraving taste, so a score that states one wins.
+  static const List<String> _overridableOptions = <String>['hideRepeatClef'];
+
+  static final RegExp _optionHeader =
+      RegExp(r'^\s*%option:\s*([A-Za-z]+)\s*=', multiLine: true);
+
   List<String> _renderRows(
     String source, {
     required double width,
     required AretinoStyle style,
   }) {
+    final Map<String, Object?> options = style.rendererOptions(width);
+    for (final RegExpMatch m in _optionHeader.allMatches(source)) {
+      final String name = m.group(1)!;
+      if (_overridableOptions.contains(name)) {
+        options.remove(name);
+      }
+    }
     for (int pass = 0; pass < _maxMeasurePasses; pass++) {
       final Map<String, Object?> reply = _callRenderer(
         source: source,
-        options: style.rendererOptions(width),
+        options: options,
       );
       final List<Object?> missingWidths =
           (reply['missingWidths'] as List<Object?>?) ?? const <Object?>[];

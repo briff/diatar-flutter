@@ -606,20 +606,15 @@ AretinoTextStyle _textStyle(
   AretinoTextStyle fallback,
 ) {
   final double? size = double.tryParse(attrs['font-size'] ?? '');
-  final String? family = attrs['font-family'];
-  List<String> families = const <String>[];
-  if (family != null && family.trim().isNotEmpty) {
-    families = family
-        .split(',')
-        .map((String s) => s.trim().replaceAll("'", '').replaceAll('"', ''))
-        .where((String s) => s.isNotEmpty)
-        .toList();
-  }
+  // `font-family` is deliberately ignored. The renderer echoes one family —
+  // the `textFont` we handed it — into every `<text>` element, and it is a CSS
+  // name, not a Flutter one: honouring it would paint with a face the widths
+  // were never measured against. [fallback] carries the face the caller both
+  // measured and paints with.
   return AretinoTextStyle(
     fontSize: size ?? fallback.fontSize,
-    fontFamily: families.isNotEmpty ? families.first : fallback.fontFamily,
-    fontFamilyFallback:
-        families.length > 1 ? families.sublist(1) : fallback.fontFamilyFallback,
+    fontFamily: fallback.fontFamily,
+    fontFamilyFallback: fallback.fontFamilyFallback,
     bold: (attrs['font-weight'] ?? '') == 'bold' || fallback.bold,
     italic: (attrs['font-style'] ?? '') == 'italic' || fallback.italic,
     smallCaps: (attrs['font-variant'] ?? '') == 'small-caps' || fallback.smallCaps,
