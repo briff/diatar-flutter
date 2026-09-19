@@ -25,6 +25,7 @@ class MqttSenderService {
   String _topicState = '';
   String _topicBlank = '';
   String _topicDia = '';
+  final Set<String> _publishedTopics = <String>{};
 
   Uint8List? _cachedState;
   Uint8List? _cachedText;
@@ -47,7 +48,9 @@ class MqttSenderService {
       await clearRetainedMessages();
     }
 
-    await close();
+    // Azonos topic-csoport újranyitásakor a cache-t újra kell küldeni, ezért
+    // a kapcsolatot retained törlés nélkül zárjuk le.
+    await close(clearRetained: false);
 
     if (user.isEmpty) {
       onStatusChanged(false);
@@ -100,7 +103,10 @@ class MqttSenderService {
     }
   }
 
-  Future<void> close() async {
+  Future<void> close({bool clearRetained = true}) async {
+    if (clearRetained) {
+      await clearRetainedMessages();
+    }
     await _sub?.cancel();
     _sub = null;
     try {
@@ -113,18 +119,18 @@ class MqttSenderService {
   Future<void> clearRetainedMessages() async {
     final MqttClient? client = _client;
     if (client == null) {
+      _publishedTopics.clear();
       _cachedState = null;
       _cachedText = null;
       _cachedBlank = null;
       return;
     }
 
-    final List<String> topics = <String>[
-      _topicState,
-      _topicDia,
-      _topicBlank,
-    ].where((String t) => t.isNotEmpty).toList();
+    final List<String> topics = _publishedTopics.toList(growable: false);
     if (topics.isEmpty) {
+      _cachedState = null;
+      _cachedText = null;
+      _cachedBlank = null;
       return;
     }
 
@@ -132,15 +138,15 @@ class MqttSenderService {
     final StreamSubscription<MqttPublishMessage>? sub = client.published
         ?.listen((MqttPublishMessage msg) {
           final String? topic = msg.variableHeader?.topicName;
-          if (topic != null) {
+          if (topic != null && _publishedTopics.contains(topic)) {
             ackedTopics.add(topic);
           }
         });
 
     try {
-      // Mindhárom törlő üzenetet szinkronban elindítjuk, hogy akár azonnali
-      // leállás (pl. web-es fülbezárás) esetén is mind a három topic-ra
-      // elinduljon a PUBLISH.
+      // Minden, ezen a kapcsolaton használt topic törlését szinkronban
+      // elindítjuk, hogy akár azonnali leállásnál is mindegyik PUBLISH
+      // elküldése megkezdődjön.
       final List<Future<void>> sends = <Future<void>>[
         for (final String topic in topics) _publishEmpty(topic),
       ];
@@ -160,6 +166,7 @@ class MqttSenderService {
     _cachedState = null;
     _cachedText = null;
     _cachedBlank = null;
+    _publishedTopics.clear();
   }
 
   Future<void> sendState(
@@ -218,6 +225,7 @@ class MqttSenderService {
         builder.payload!,
         retain: true,
       );
+      _publishedTopics.add(topic);
     } catch (e) {
       // Átmeneti publikálási hiba (pl. reconnect közben) nem eldobható: a
       // payload már a cache-ben van, auto-reconnect után újraküldjük. A
