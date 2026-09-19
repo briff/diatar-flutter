@@ -1,3 +1,5 @@
+import '../services/aretino/aretino_source.dart';
+
 class DtxBook {
   const DtxBook({
     required this.fileName,
@@ -54,4 +56,22 @@ class DtxVerse {
   final bool soundForSong;
   final String? fotoFilePath;
   final int forwardMS;
+
+  /// Whether this verse is a Gregorian chant written in Aretino notation,
+  /// rather than ordinary verse text.
+  bool get isAretino => AretinoSource.isAretino(lines);
+
+  /// The Aretino source this verse carries, or null when it is ordinary text.
+  String? get aretinoSource => AretinoSource.extract(lines);
+
+  /// The verse as human-readable text: for a chant, the words it is sung on;
+  /// for anything else, the lines as they stand.
+  ///
+  /// Everywhere that shows a verse to a person — a verse list, a slide preview,
+  /// a search snippet, the title fields of a `text` record — wants this rather
+  /// than [lines], or it shows `\?A(g2) g a b a` where the words should be.
+  List<String> get textLines {
+    final String? source = aretinoSource;
+    return source == null ? lines : AretinoSource.lyricLines(source);
+  }
 }

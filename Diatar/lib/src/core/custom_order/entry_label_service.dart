@@ -33,7 +33,7 @@ class EntryLabelService {
       return '';
     }
     return firstMeaningfulLine(
-      verses[resolver.safeVerseIndex(entry)].lines,
+      verses[resolver.safeVerseIndex(entry)].textLines,
     );
   }
 
