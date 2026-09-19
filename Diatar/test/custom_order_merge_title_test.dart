@@ -752,7 +752,7 @@ class _BlockingMqttSender extends MqttSenderService {
   Future<void> clearRetainedMessages() async {}
 
   @override
-  Future<void> close() async {}
+  Future<void> close({bool clearRetained = true}) async {}
 }
 
 class _TrackingTcpSender extends TcpSenderService {
