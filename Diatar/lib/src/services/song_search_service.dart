@@ -80,15 +80,20 @@ List<SongSearchSong> buildSearchIndex(List<DtxBook> books) {
       for (int vIdx = 0; vIdx < song.verses.length; vIdx++) {
         final DtxVerse verse = song.verses[vIdx];
         final String verseNameLower = normalizeSearchText(verse.name);
-        final String linesJoinedLower =
-            normalizeSearchText(removeEscapeSequences(verse.lines.join(' ')));
+        // A Gregorian chant is indexed and quoted by the words it is sung on,
+        // not by its Aretino source: a search for "alleluja" must find the
+        // chant, and must not be thrown by the neume letters `g a b a`.
+        final List<String> searchableLines = verse.textLines;
+        final String linesJoinedLower = normalizeSearchText(
+          removeEscapeSequences(searchableLines.join(' ')),
+        );
         final String verseHaystack = '$verseNameLower $linesJoinedLower';
 
         verses.add(SongSearchVerse(
           verseIndex: vIdx,
           verseName: verse.name,
           haystack: verseHaystack,
-          lines: verse.lines,
+          lines: searchableLines,
         ));
       }
 

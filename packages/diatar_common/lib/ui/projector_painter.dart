@@ -9,6 +9,10 @@ import '../models/app_settings.dart';
 import '../models/projection_frame.dart';
 import '../models/projection_globals.dart';
 import '../models/records.dart';
+import '../services/aretino/aretino_render_cache.dart';
+import '../services/aretino/aretino_render_service.dart';
+import '../services/aretino/aretino_source.dart';
+import '../services/aretino/aretino_svg.dart';
 
 import 'chord_renderer.dart';
 import 'kotta_assets.dart';
@@ -50,7 +54,11 @@ class ProjectorPainter extends CustomPainter {
     this.logoTitle = '',
     this.logoSubtitle = '',
     this.onHighlightRenderState,
-  });
+    // An Aretino score is rendered off the paint path and arrives later, so
+    // every projector surface repaints when one becomes ready. The notifier
+    // only ever fires after a score render, so this costs nothing on a slide
+    // that has no notation.
+  }) : super(repaint: AretinoRenderCache.instance);
 
   final ProjectionFrame? frame;
   final ProjectionGlobals globals;
@@ -566,9 +574,134 @@ class ProjectorPainter extends CustomPainter {
     );
   }
 
+  /// Draws a Gregorian chant slide. The background is already painted.
+  ///
+  /// Nothing is rendered here: a prepared score is looked up in
+  /// [AretinoRenderCache] and replayed, and a miss draws the words as plain
+  /// text while the render runs (Decision 6). A projector never shows an empty
+  /// screen waiting for JavaScript.
+  void _drawAretino(Canvas canvas, Size size, TextFrame frame, String source) {
+    _emitHighlightRenderState(maxWordIndex: 0, isFullyHighlighted: false);
+
+    final double titleHeight = _drawAretinoTitle(canvas, size, frame);
+    final Size target = Size(
+      math.max(40, size.width),
+      math.max(40, size.height - titleHeight),
+    );
+
+    final AretinoRenderKey key = AretinoRenderKey(
+      source: source,
+      width: target.width,
+      height: target.height,
+      style: AretinoStyle(lyricFontSize: globals.fontSize.toDouble()),
+    );
+    final AretinoRenderCache cache = AretinoRenderCache.instance;
+    final AretinoRendering? rendering = cache.lookup(key);
+    if (rendering == null) {
+      cache.request(key);
+      _drawAretinoLyrics(canvas, size, source, titleHeight);
+      return;
+    }
+
+    final double contentHeight = rendering.height;
+    double y = titleHeight +
+        (globals.vCenter
+            ? math.max(0, (target.height - contentHeight) / 2)
+            : 0);
+    for (int i = 0; i < rendering.rows.length; i++) {
+      final AretinoPicture row = rendering.rows[i];
+      final double x = globals.hCenter
+          ? (size.width - row.size.width) / 2
+          : globals.leftIndent.toDouble();
+      canvas.save();
+      // Horizontally each row keeps the width it was laid out against, so the
+      // systems stay aligned with one another. Vertically they are stacked on
+      // their ink, since the room the library reserves above a staff for notes
+      // that may rise over it would otherwise show up as a gap under the
+      // previous system's lyrics.
+      canvas.translate(
+        x - row.viewBox.left,
+        y + rendering.rowTops[i] - row.inkBounds.top,
+      );
+      row.paint(canvas, inkColor: globals.txtColor);
+      canvas.restore();
+    }
+  }
+
+  /// Draws the slide title above a score, and returns the height it took.
+  double _drawAretinoTitle(Canvas canvas, Size size, TextFrame frame) {
+    if (globals.hideTitle || frame.record.title.trim().isEmpty) {
+      return 0;
+    }
+    final double fontSize = (globals.titleSize.toDouble() * 2.5).clamp(
+      8.0,
+      72.0,
+    );
+    final TextPainter tp = TextPainter(
+      text: TextSpan(
+        text: frame.record.title,
+        style: TextStyle(color: globals.txtColor, fontSize: fontSize),
+      ),
+      textDirection: TextDirection.ltr,
+      textAlign: globals.hCenter ? TextAlign.center : TextAlign.left,
+    )..layout(maxWidth: math.max(40, size.width));
+    tp.paint(
+      canvas,
+      Offset(globals.hCenter ? (size.width - tp.width) / 2 : 0, 0),
+    );
+    final double height = tp.height;
+    tp.dispose();
+    return height;
+  }
+
+  /// The words of a chant, as plain text — what a slide shows while its score
+  /// is still rendering, and what it falls back to if the render fails.
+  void _drawAretinoLyrics(
+    Canvas canvas,
+    Size size,
+    String source,
+    double top,
+  ) {
+    final List<String> lines = AretinoSource.lyricLines(source);
+    if (lines.isEmpty) {
+      return;
+    }
+    final TextPainter tp = TextPainter(
+      text: TextSpan(
+        text: lines.join('\n'),
+        style: TextStyle(
+          color: globals.txtColor,
+          fontSize: globals.fontSize.toDouble(),
+        ),
+      ),
+      textDirection: TextDirection.ltr,
+      textAlign: globals.hCenter ? TextAlign.center : TextAlign.left,
+    )..layout(maxWidth: math.max(40, size.width));
+    final double available = math.max(0, size.height - top);
+    tp.paint(
+      canvas,
+      Offset(
+        globals.hCenter ? (size.width - tp.width) / 2 : 0,
+        top + (globals.vCenter ? math.max(0, (available - tp.height) / 2) : 0),
+      ),
+    );
+    tp.dispose();
+  }
+
   void _drawText(Canvas canvas, Size size, TextFrame frame) {
     final Color bg = _colorWithTransparency(globals.bkColor, globals.backTrans);
     canvas.drawRect(Offset.zero & size, Paint()..color = bg);
+
+    // A verse whose first line carries the `\?A` marker is a Gregorian chant in
+    // Aretino notation. It travels as ordinary verse text inside the same
+    // `text` record as everything else, and is rendered here, at this canvas's
+    // own size — which is what makes it reflow to whatever screen it lands on
+    // (plans/aretino-projection-v1.md, Decision 1).
+    final String? aretino = AretinoSource.extract(frame.record.lines);
+    if (aretino != null) {
+      _drawAretino(canvas, size, frame, aretino);
+      return;
+    }
 
     const double horizontalPad = 0;
     final double maxWidth = math.max(40, size.width);

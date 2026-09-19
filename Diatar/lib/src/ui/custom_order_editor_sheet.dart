@@ -1520,7 +1520,7 @@ Future<void> _openSync() async {
                                 title: _buildTitleWithFirstLine(
                                   title: verses[i].name,
                                   firstLine: firstMeaningfulLine(
-                                    verses[i].lines,
+                                    verses[i].textLines,
                                   ),
                                 ),
                                 onChanged: (bool? value) {

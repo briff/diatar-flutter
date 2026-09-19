@@ -43,3 +43,23 @@ app.*.map.json
 /android/app/debug
 /android/app/profile
 /android/app/release
+
+# libwebrtc prebuilt binaries for the vendored flutter_webrtc patch.
+# patches/flutter_webrtc/third_party/CMakeLists.txt downloads and extracts these
+# at CMake configure time, from the release pinned in libwebrtc_version.ini.
+# They are build outputs, not sources, and the extract step wipes the directory.
+/patches/flutter_webrtc/third_party/downloads/
+/patches/flutter_webrtc/third_party/libwebrtc/
+
+# Generated code — do not commit; `flutter pub get` regenerates all of it.
+# lib/l10n/generated/ comes from `flutter gen-l10n` (driven by l10n.yaml);
+# edit the ARB sources in lib/l10n/ instead. The plugin registrants come from
+# the plugin list resolved out of pubspec.yaml.
+/lib/l10n/generated/
+/linux/flutter/generated_plugin_registrant.cc
+/linux/flutter/generated_plugin_registrant.h
+/linux/flutter/generated_plugins.cmake
+/macos/Flutter/GeneratedPluginRegistrant.swift
+/windows/flutter/generated_plugin_registrant.cc
+/windows/flutter/generated_plugin_registrant.h
+/windows/flutter/generated_plugins.cmake

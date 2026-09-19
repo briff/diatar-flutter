@@ -16,8 +16,6 @@ analyzer:
     - windows/**
     - macos/**
     - linux/**
-    # Standalone example app belonging to the patched dependency.
-    - patches/desktop_multi_window/example/**
 include: package:flutter_lints/flutter.yaml
 
 linter:

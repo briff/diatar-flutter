@@ -36,7 +36,15 @@ Map<String, dynamic> _decodeArguments(String raw) {
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await FileSystemProvider.init();
-  await WakelockPlus.enable();
+  // The wakelock is not critical: some Linux/WSL sessions provide no
+  // org.freedesktop.ScreenSaver D-Bus service, and the thrown exception would
+  // abort main() before runApp() ever runs, leaving a black window.
+  try {
+    await WakelockPlus.enable();
+  } catch (error, stackTrace) {
+    debugPrint('WakelockPlus.enable() failed, continuing without it: $error');
+    debugPrintStack(stackTrace: stackTrace);
+  }
   if (_isDesktopPlatform()) {
     await windowManager.ensureInitialized();
     final WindowController windowController =

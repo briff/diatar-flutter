@@ -33,6 +33,11 @@ class _DiaVetitoAppState extends State<DiaVetitoApp> {
   void initState() {
     super.initState();
     _controller.init();
+    // Booting the JavaScript engine is the expensive part of an Aretino
+    // slide, not rendering one, so it happens here rather than on the first
+    // chant (plans/aretino-projection-v1.md, Decision 6).
+    unawaited(AretinoRenderService.instance.ensureLoaded());
+
     unawaited(KottaAssets.ensureLoaded().then((_) {
       if (mounted) {
         setState(() {});
