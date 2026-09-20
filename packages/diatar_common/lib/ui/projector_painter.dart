@@ -2164,7 +2164,7 @@ class ProjectorPainter extends CustomPainter {
     }
 
     final Paint staffPaint = Paint()
-      ..color = globals.txtColor
+      ..color = _kottaInkColor
       ..strokeWidth = 1;
 
     final _KottaDrawState lineState = _KottaDrawState();
@@ -2186,6 +2186,17 @@ class ProjectorPainter extends CustomPainter {
       final double rowX =
           blockStartX + _kottaContinuationIndent(rowIndex, continuationIndent);
       final double rowTop = baseTop + rowIndex * rowStep;
+      if (globals.inverzKotta) {
+        canvas.drawRect(
+          Rect.fromLTRB(
+            rowX,
+            rowTop - _kottaLedgerReserve(lineGap),
+            rowX + row.width,
+            rowTop + staffHeight + _kottaLedgerReserve(lineGap),
+          ),
+          Paint()..color = globals.txtColor,
+        );
+      }
       for (int i = 0; i < 5; i++) {
         final double ly = rowTop + i * lineGap;
         canvas.drawLine(
@@ -2280,6 +2291,9 @@ class ProjectorPainter extends CustomPainter {
   double _kottaLedgerReserve(double lineGap) {
     return lineGap * 2;
   }
+
+  Color get _kottaInkColor =>
+      globals.inverzKotta ? globals.bkColor : globals.txtColor;
 
   double _kottaStaffToTextGap(double lineGap) {
     // Keep enough clearance for lower ledger lines so they do not collide with lyrics.
@@ -3278,10 +3292,10 @@ class ProjectorPainter extends CustomPainter {
     double lineGap,
   ) {
     final Paint thin = Paint()
-      ..color = globals.txtColor
+      ..color = _kottaInkColor
       ..strokeWidth = 1.2;
     final Paint thick = Paint()
-      ..color = globals.txtColor
+      ..color = _kottaInkColor
       ..strokeWidth = 2.2;
 
     final double y1 = top;
@@ -3327,7 +3341,7 @@ class ProjectorPainter extends CustomPainter {
 
     if (drawStaff) {
       final Paint staffPaint = Paint()
-        ..color = globals.txtColor
+        ..color = _kottaInkColor
         ..strokeWidth = 1;
       for (int i = 0; i < 5; i++) {
         final double y = top + i * lineGap;
@@ -3838,13 +3852,13 @@ class ProjectorPainter extends CustomPainter {
         Rect.fromLTRB(x1, ny1, nx2, ny2),
       );
       if (!drewHead) {
-        final Paint notePaint = Paint()..color = globals.txtColor;
+        final Paint notePaint = Paint()..color = _kottaInkColor;
         canvas.drawOval(Rect.fromLTRB(x1, ny1, nx2, ny2), notePaint);
       }
 
       // Ledger lines for notes outside the 5-line staff.
       final Paint ledgerPaint = Paint()
-        ..color = globals.txtColor
+        ..color = _kottaInkColor
         ..strokeWidth = 1.0;
       final double lx1 = nx - noteW * 0.75;
       final double lx2 = nx + noteW * 0.75;
@@ -3884,7 +3898,7 @@ class ProjectorPainter extends CustomPainter {
           );
         } else {
           final Paint stemPaint = Paint()
-            ..color = globals.txtColor
+            ..color = _kottaInkColor
             ..strokeWidth = 1.2;
           canvas.drawLine(Offset(stemX, cy), Offset(stemX, stemY2), stemPaint);
           if (state.ritmus == '8' || state.ritmus == '6') {
@@ -3928,7 +3942,7 @@ class ProjectorPainter extends CustomPainter {
         return;
       }
       final Paint barPaint = Paint()
-        ..color = globals.txtColor
+        ..color = _kottaInkColor
         ..strokeWidth = 1.2;
       if (c2 == '1' || c2 == '|') {
         if (c2 == '|') {
@@ -4068,7 +4082,7 @@ class ProjectorPainter extends CustomPainter {
         start.dy,
       )
       ..close();
-    canvas.drawPath(p, Paint()..color = globals.txtColor);
+    canvas.drawPath(p, Paint()..color = _kottaInkColor);
     state.slurType = ' ';
     state.slurNext = ' ';
     state.slurStart = null;
@@ -4167,7 +4181,7 @@ class ProjectorPainter extends CustomPainter {
         : endY;
 
     final Paint p = Paint()
-      ..color = globals.txtColor
+      ..color = _kottaInkColor
       ..strokeWidth = 1.0
       ..style = PaintingStyle.stroke;
     canvas.drawLine(Offset(startX, startLineY), Offset(endX, endLineY), p);
@@ -4211,7 +4225,7 @@ class ProjectorPainter extends CustomPainter {
           Offset(s.x, s.yHead),
           Offset(s.x, s.yTip),
           Paint()
-            ..color = globals.txtColor
+            ..color = _kottaInkColor
             ..strokeWidth = 1.2,
         );
         _drawStandaloneFlag(canvas, s, lineGap);
@@ -4225,7 +4239,7 @@ class ProjectorPainter extends CustomPainter {
     final bool down = first.down;
     final double beamThickness = lineGap * 0.45;
     final Paint beamPaint = Paint()
-      ..color = globals.txtColor
+      ..color = _kottaInkColor
       ..strokeWidth = beamThickness;
     canvas.drawLine(
       Offset(first.x, first.yTip),
@@ -4246,7 +4260,7 @@ class ProjectorPainter extends CustomPainter {
         Offset(s.x, s.yHead),
         Offset(s.x, yEnd),
         Paint()
-          ..color = globals.txtColor
+          ..color = _kottaInkColor
           ..strokeWidth = 1.2,
       );
     }
@@ -4311,7 +4325,7 @@ class ProjectorPainter extends CustomPainter {
       img.height.toDouble(),
     );
     final Paint p = Paint()
-      ..colorFilter = ColorFilter.mode(globals.txtColor, BlendMode.srcIn);
+      ..colorFilter = ColorFilter.mode(_kottaInkColor, BlendMode.srcIn);
     canvas.drawImageRect(img, src, dst, p);
     return true;
   }

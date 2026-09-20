@@ -40,6 +40,7 @@ class SettingsStore {
   static const String _kProjVCenter = 'ProjVCenter';
   static const String _kProjUseAkkord = 'ProjUseAkkord';
   static const String _kProjUseKotta = 'ProjUseKotta';
+  static const String _kProjInverseKotta = 'ProjInverseKotta';
   static const String _kProjUseTitle = 'ProjUseTitle';
   static const String _kProjKottaArany = 'ProjKottaArany';
   static const String _kProjAkkordArany = 'ProjAkkordArany';
@@ -329,6 +330,7 @@ class SettingsStore {
       projVCenter: prefs.getBool(_kProjVCenter) ?? true,
       projUseAkkord: prefs.getBool(_kProjUseAkkord) ?? false,
       projUseKotta: prefs.getBool(_kProjUseKotta) ?? true,
+      projInverseKotta: prefs.getBool(_kProjInverseKotta) ?? false,
       projUseTitle: prefs.getBool(_kProjUseTitle) ?? true,
       projKottaArany: prefs.getInt(_kProjKottaArany) ?? 100,
       projAkkordArany: prefs.getInt(_kProjAkkordArany) ?? 100,
@@ -423,6 +425,7 @@ class SettingsStore {
     await prefs.setBool(_kProjVCenter, settings.projVCenter);
     await prefs.setBool(_kProjUseAkkord, settings.projUseAkkord);
     await prefs.setBool(_kProjUseKotta, settings.projUseKotta);
+    await prefs.setBool(_kProjInverseKotta, settings.projInverseKotta);
     await prefs.setBool(_kProjUseTitle, settings.projUseTitle);
     await prefs.setInt(_kProjKottaArany, settings.projKottaArany);
     await prefs.setInt(_kProjAkkordArany, settings.projAkkordArany);

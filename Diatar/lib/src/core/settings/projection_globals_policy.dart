@@ -29,6 +29,7 @@ class ProjectionGlobalsPolicy {
       vCenter: settings.projVCenter,
       useAkkord: settings.projUseAkkord,
       useKotta: settings.projUseKotta,
+      inverzKotta: settings.projInverseKotta,
       hideTitle: !settings.projUseTitle,
       kottaArany: settings.projKottaArany,
       akkordArany: settings.projAkkordArany,

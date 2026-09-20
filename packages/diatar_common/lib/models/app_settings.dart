@@ -46,6 +46,7 @@ class AppSettings {
     this.projVCenter = true,
     this.projUseAkkord = false,
     this.projUseKotta = true,
+    this.projInverseKotta = false,
     this.projUseTitle = true,
     this.projKottaArany = 100,
     this.projAkkordArany = 100,
@@ -138,6 +139,7 @@ class AppSettings {
   final bool projVCenter;
   final bool projUseAkkord;
   final bool projUseKotta;
+  final bool projInverseKotta;
   final bool projUseTitle;
   final int projKottaArany;
   final int projAkkordArany;
@@ -237,6 +239,7 @@ class AppSettings {
     bool? projVCenter,
     bool? projUseAkkord,
     bool? projUseKotta,
+    bool? projInverseKotta,
     bool? projUseTitle,
     int? projKottaArany,
     int? projAkkordArany,
@@ -327,6 +330,7 @@ class AppSettings {
       projVCenter: projVCenter ?? this.projVCenter,
       projUseAkkord: projUseAkkord ?? this.projUseAkkord,
       projUseKotta: projUseKotta ?? this.projUseKotta,
+      projInverseKotta: projInverseKotta ?? this.projInverseKotta,
       projUseTitle: projUseTitle ?? this.projUseTitle,
       projKottaArany: projKottaArany ?? this.projKottaArany,
       projAkkordArany: projAkkordArany ?? this.projAkkordArany,
@@ -412,6 +416,7 @@ class AppSettings {
       'projVCenter': projVCenter,
       'projUseAkkord': projUseAkkord,
       'projUseKotta': projUseKotta,
+      'projInverseKotta': projInverseKotta,
       'projUseTitle': projUseTitle,
       'projKottaArany': projKottaArany,
       'projAkkordArany': projAkkordArany,
@@ -501,6 +506,7 @@ class AppSettings {
       projVCenter: boolValue('projVCenter', true),
       projUseAkkord: boolValue('projUseAkkord', false),
       projUseKotta: boolValue('projUseKotta', true),
+      projInverseKotta: boolValue('projInverseKotta', false),
       projUseTitle: boolValue('projUseTitle', true),
       projKottaArany: intValue('projKottaArany', 100),
       projAkkordArany: intValue('projAkkordArany', 100),

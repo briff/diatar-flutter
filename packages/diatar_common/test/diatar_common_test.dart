@@ -95,6 +95,20 @@ void main() {
     expect(state.showBlankPic, isTrue);
   });
 
+  test('state record preserves inverse notation colors', () {
+    const ProjectionGlobals globals = ProjectionGlobals(inverzKotta: true);
+
+    final Uint8List bytes = encodeStateRecord(
+      globals,
+      projecting: false,
+      wordToHighlight: 0,
+    );
+    final RecStateRecord state = RecStateRecord.fromBytes(bytes);
+
+    expect(bytes[323], 1);
+    expect(state.inverzKotta, isTrue);
+  });
+
   test('packet parser rebuilds records from split chunks', () {
     final ProjectionPacketParser parser = ProjectionPacketParser();
     final Uint8List payload = Uint8List.fromList(
@@ -752,69 +766,30 @@ void main() {
     );
   });
 
-  test(
-    'plain multiline text rows never extend past the container width',
-    () {
-      final ProjectorPainter painter = ProjectorPainter(
-        frame: null,
-        globals: const ProjectionGlobals(useKotta: false, hCenter: true),
-        settings: const AppSettings(receiverUseKotta: false),
-      );
-      const List<String> texts = <String>[
-        'paradicsomkertben',
-        'Megszentségteleníthetetlenségeskedéseitekert',
-        'torvenyeinek egy masik szo ide',
-        'SZVU 1/2 paradicsomkertben',
-      ];
-      for (final String text in texts) {
-        for (final double width in <double>[60, 100, 180, 220, 300]) {
-          final List<String> rows = painter.debugFullPipelineRowsForRecord(
-            size: ui.Size(width, 800),
-            record: RecTextRecord(
-              scholaLine: '',
-              title: '',
-              lines: <String>[text],
-            ),
-          );
-          for (final String row in rows) {
-            final RegExpMatch? m = RegExp(r'T<([0-9.]+)/').firstMatch(row);
-            if (m == null) {
-              continue;
-            }
-            final double rowWidth = double.parse(m.group(1)!);
-            expect(
-              rowWidth,
-              lessThanOrEqualTo(width + 1),
-              reason: 'text row overflow: $row',
-            );
-          }
-        }
-      }
-    },
-  );
-
-  test(
-    'overlong kotta words are shrunk so no kotta row exceeds the width',
-    () {
-      final ProjectorPainter painter = ProjectorPainter(
-        frame: null,
-        globals: const ProjectionGlobals(useKotta: true, hCenter: false),
-        settings: const AppSettings(receiverUseKotta: true),
-      );
-      for (final double width in <double>[300, 400, 500]) {
+  test('plain multiline text rows never extend past the container width', () {
+    final ProjectorPainter painter = ProjectorPainter(
+      frame: null,
+      globals: const ProjectionGlobals(useKotta: false, hCenter: true),
+      settings: const AppSettings(receiverUseKotta: false),
+    );
+    const List<String> texts = <String>[
+      'paradicsomkertben',
+      'Megszentségteleníthetetlenségeskedéseitekert',
+      'torvenyeinek egy masik szo ide',
+      'SZVU 1/2 paradicsomkertben',
+    ];
+    for (final String text in texts) {
+      for (final double width in <double>[60, 100, 180, 220, 300]) {
         final List<String> rows = painter.debugFullPipelineRowsForRecord(
-          size: ui.Size(width, 640),
+          size: ui.Size(width, 800),
           record: RecTextRecord(
             scholaLine: '',
             title: '',
-            lines: <String>[
-              r'\Kr34a;paradicsomkertben hosszúvégződéssel szó',
-            ],
+            lines: <String>[text],
           ),
         );
-        expect(rows, isNotEmpty, reason: 'expected at least one kotta row');
         for (final String row in rows) {
-          final RegExpMatch? m = RegExp(r'K<([0-9.]+)>').firstMatch(row);
+          final RegExpMatch? m = RegExp(r'T<([0-9.]+)/').firstMatch(row);
           if (m == null) {
             continue;
           }
@@ -822,11 +797,42 @@ void main() {
           expect(
             rowWidth,
             lessThanOrEqualTo(width + 1),
-            reason: 'kotta row overflow: $row (container $width)',
+            reason: 'text row overflow: $row',
           );
         }
-        expect(rows.first.contains('paradicsomkertben'), isTrue);
       }
-    },
-  );
+    }
+  });
+
+  test('overlong kotta words are shrunk so no kotta row exceeds the width', () {
+    final ProjectorPainter painter = ProjectorPainter(
+      frame: null,
+      globals: const ProjectionGlobals(useKotta: true, hCenter: false),
+      settings: const AppSettings(receiverUseKotta: true),
+    );
+    for (final double width in <double>[300, 400, 500]) {
+      final List<String> rows = painter.debugFullPipelineRowsForRecord(
+        size: ui.Size(width, 640),
+        record: RecTextRecord(
+          scholaLine: '',
+          title: '',
+          lines: <String>[r'\Kr34a;paradicsomkertben hosszúvégződéssel szó'],
+        ),
+      );
+      expect(rows, isNotEmpty, reason: 'expected at least one kotta row');
+      for (final String row in rows) {
+        final RegExpMatch? m = RegExp(r'K<([0-9.]+)>').firstMatch(row);
+        if (m == null) {
+          continue;
+        }
+        final double rowWidth = double.parse(m.group(1)!);
+        expect(
+          rowWidth,
+          lessThanOrEqualTo(width + 1),
+          reason: 'kotta row overflow: $row (container $width)',
+        );
+      }
+      expect(rows.first.contains('paradicsomkertben'), isTrue);
+    }
+  });
 }

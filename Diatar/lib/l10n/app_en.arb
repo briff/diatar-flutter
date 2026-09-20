@@ -558,6 +558,7 @@
   "vCenter": "Vertical center align",
   "showChords": "Show chords",
   "showKotta": "Show notation",
+  "inverseKottaColors": "Inverse music notation colors",
   "showBackgroundImage": "Show background image",
   "wordHighlight": "Word highlight",
   "boldText": "Bold text",

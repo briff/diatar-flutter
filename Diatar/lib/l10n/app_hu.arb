@@ -558,6 +558,7 @@
   "vCenter": "Függőleges középre igazítás",
   "showChords": "Akkordok mutatása",
   "showKotta": "Kotta mutatása",
+  "inverseKottaColors": "Inverz kottaszínek",
   "showBackgroundImage": "Háttérkép mutatása",
   "wordHighlight": "Szókiemelés",
   "boldText": "Félkövér szöveg",

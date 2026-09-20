@@ -78,6 +78,15 @@ void main() {
     expect(reloaded.landscapeControlsRatio, 0.42);
   });
 
+  test('persists inverse notation colors round-trip', () async {
+    SharedPreferences.setMockInitialValues(<String, Object>{});
+    final SettingsStore store = SettingsStore();
+
+    await store.save((await store.load()).copyWith(projInverseKotta: true));
+
+    expect((await store.load()).projInverseKotta, isTrue);
+  });
+
   test('persists control photo view state round-trip', () async {
     SharedPreferences.setMockInitialValues(<String, Object>{});
     final SettingsStore store = SettingsStore();

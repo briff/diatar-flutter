@@ -154,6 +154,7 @@ class _DiatarSettingsSheetState extends State<DiatarSettingsSheet> {
   late bool _projVCenter;
   late bool _projUseAkkord;
   late bool _projUseKotta;
+  late bool _projInverseKotta;
   late bool _projShowBackgroundImage;
   late bool _useSound;
   late bool _advanceAfterMusic;
@@ -261,6 +262,7 @@ class _DiatarSettingsSheetState extends State<DiatarSettingsSheet> {
     _projVCenter = s.projVCenter;
     _projUseAkkord = s.projUseAkkord;
     _projUseKotta = s.projUseKotta;
+    _projInverseKotta = s.projInverseKotta;
     _projShowBackgroundImage = s.projShowBackgroundImage;
     _useSound = s.useSound;
     _advanceAfterMusic = s.advanceAfterMusic;
@@ -1911,6 +1913,14 @@ class _DiatarSettingsSheetState extends State<DiatarSettingsSheet> {
             value: _projUseKotta,
             onChanged: (bool v) => setBoth(() => _projUseKotta = v),
             title: Text(l10n.showKotta),
+          ),
+          SwitchListTile(
+            contentPadding: EdgeInsets.zero,
+            value: _projInverseKotta,
+            onChanged: _projUseKotta
+                ? (bool v) => setBoth(() => _projInverseKotta = v)
+                : null,
+            title: Text(l10n.inverseKottaColors),
           ),
           SwitchListTile(
             contentPadding: EdgeInsets.zero,
@@ -4256,6 +4266,7 @@ class _DiatarSettingsSheetState extends State<DiatarSettingsSheet> {
       projVCenter: _projVCenter,
       projUseAkkord: _projUseAkkord,
       projUseKotta: _projUseKotta,
+      projInverseKotta: _projInverseKotta,
       projShowBackgroundImage: _projShowBackgroundImage,
       projUseTitle: _projUseTitle,
       projKottaArany: _projKottaArany.clamp(10, 200),
