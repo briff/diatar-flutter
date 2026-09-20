@@ -253,6 +253,17 @@ void main() {
     expect(prefixes.skip(1), everyElement('kGE2'));
   });
 
+  test('kotta honors the initial staff line count command', () {
+    final ProjectorPainter painter = ProjectorPainter(
+      frame: null,
+      globals: const ProjectionGlobals(useKotta: true),
+      settings: const AppSettings(receiverUseKotta: true),
+    );
+
+    expect(painter.debugKottaStaffLineCountForLine(r'\K-3r41a;Alfa'), 3);
+    expect(painter.debugKottaStaffLineCountForLine(r'\Kr41a;Alfa'), 5);
+  });
+
   test('real eneklo egyhaz sample repeats clef and key signature', () {
     final ProjectorPainter painter = ProjectorPainter(
       frame: null,

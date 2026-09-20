@@ -144,6 +144,14 @@ class ProjectorPainter extends CustomPainter {
     return rows.map((row) => row.prefix.kotta).toList();
   }
 
+  int debugKottaStaffLineCountForLine(String source) {
+    final List<_RenderLine> lines = _parseOneLine(source);
+    if (lines.isEmpty) {
+      return 5;
+    }
+    return _staffLineCountForLine(lines.first);
+  }
+
   List<List<String>> debugKottaRowPrefixesForLines(
     List<String> sources, {
     double fontSize = 24,
@@ -2066,8 +2074,10 @@ class ProjectorPainter extends CustomPainter {
         measure.layout();
         final double singleWidth = measure.width;
         if (singleWidth > maxChunkWidth + 0.5) {
-          chunkScale =
-              (chunkScale * (maxChunkWidth / singleWidth)).clamp(0.5, 1.0);
+          chunkScale = (chunkScale * (maxChunkWidth / singleWidth)).clamp(
+            0.5,
+            1.0,
+          );
         }
       }
 
@@ -2197,7 +2207,8 @@ class ProjectorPainter extends CustomPainter {
           Paint()..color = globals.txtColor,
         );
       }
-      for (int i = 0; i < 5; i++) {
+      final int staffLineCount = _staffLineCountForLine(line);
+      for (int i = 0; i < staffLineCount; i++) {
         final double ly = rowTop + i * lineGap;
         canvas.drawLine(
           Offset(rowX, ly),
@@ -2286,6 +2297,23 @@ class ProjectorPainter extends CustomPainter {
 
   double _kottaStaffHeight(double lineGap) {
     return lineGap * 4;
+  }
+
+  int _staffLineCountForLine(_RenderLine line) {
+    for (final _WordToken word in line.words) {
+      final List<String> commands = _parseKottaCommands(
+        (word.kotta ?? '').trim(),
+      );
+      if (commands.isEmpty) {
+        continue;
+      }
+      final String first = commands.first;
+      if (first[0] == '-') {
+        return int.tryParse(first[1])?.clamp(1, 5).toInt() ?? 5;
+      }
+      return 5;
+    }
+    return 5;
   }
 
   double _kottaLedgerReserve(double lineGap) {
@@ -3251,6 +3279,8 @@ class ProjectorPainter extends CustomPainter {
       state.tomor,
       state.gerenda,
       state.szaaratlan,
+      state.agogika,
+      state.staffLineCount,
       state.slurType,
       state.slurNext,
       state.deferFinalDoubleBarAtEnd,
@@ -3343,7 +3373,8 @@ class ProjectorPainter extends CustomPainter {
       final Paint staffPaint = Paint()
         ..color = _kottaInkColor
         ..strokeWidth = 1;
-      for (int i = 0; i < 5; i++) {
+      final int staffLineCount = _staffLineCountForCommands(cmds);
+      for (int i = 0; i < staffLineCount; i++) {
         final double y = top + i * lineGap;
         canvas.drawLine(Offset(x, y), Offset(x + wordWidth, y), staffPaint);
       }
@@ -3371,6 +3402,13 @@ class ProjectorPainter extends CustomPainter {
     return out;
   }
 
+  int _staffLineCountForCommands(List<String> commands) {
+    if (commands.isEmpty || commands.first[0] != '-') {
+      return 5;
+    }
+    return int.tryParse(commands.first[1])?.clamp(1, 5).toInt() ?? 5;
+  }
+
   double _kottaWidthOf(String cmd, double lineGap, _KottaDrawState state) {
     final String c1 = cmd[0];
     final String c2 = cmd[1];
@@ -3387,10 +3425,15 @@ class ProjectorPainter extends CustomPainter {
       return 0;
     }
     if (c1 == '-') {
+      state.staffLineCount = int.tryParse(c2)?.clamp(1, 5).toInt() ?? 5;
       return 0;
     }
     if (c1 == 'm') {
       state.modosito = c2;
+      return 0;
+    }
+    if (c1 == 'a') {
+      state.agogika = c2;
       return 0;
     }
     if (c1 == 'k') {
@@ -3598,6 +3641,7 @@ class ProjectorPainter extends CustomPainter {
       return;
     }
     if (c1 == '-') {
+      state.staffLineCount = int.tryParse(c2)?.clamp(1, 5).toInt() ?? 5;
       return;
     }
 
@@ -3722,6 +3766,10 @@ class ProjectorPainter extends CustomPainter {
     }
     if (c1 == 'm') {
       state.modosito = c2;
+      return;
+    }
+    if (c1 == 'a') {
+      state.agogika = c2;
       return;
     }
     if (c1 == 'r' || c1 == 'R') {
@@ -3876,10 +3924,11 @@ class ProjectorPainter extends CustomPainter {
       }
 
       final bool stemDown = c2.toUpperCase() == c2;
-      if (state.ritmus == '2' ||
-          state.ritmus == '4' ||
-          state.ritmus == '8' ||
-          state.ritmus == '6') {
+      if (!state.szaaratlan &&
+          (state.ritmus == '2' ||
+              state.ritmus == '4' ||
+              state.ritmus == '8' ||
+              state.ritmus == '6')) {
         final double stemX = stemDown ? x1 : nx2;
         final double stemY2 = stemDown
             ? cy + lineGap * 3.2
@@ -3917,6 +3966,13 @@ class ProjectorPainter extends CustomPainter {
         }
       }
 
+      _drawAgogika(
+        canvas,
+        state,
+        noteCenter: Offset(nx, cy),
+        stemDown: stemDown,
+        lineGap: lineGap,
+      );
       _trackSlurPoint(state, Offset(nx, cy));
       _trackTupletPoint(state, Offset(nx, cy), stemDown, lineGap, noteW);
 
@@ -3934,6 +3990,7 @@ class ProjectorPainter extends CustomPainter {
       }
 
       state.modosito = ' ';
+      state.agogika = ' ';
       return;
     }
     if (c1 == '|') {
@@ -3979,6 +4036,15 @@ class ProjectorPainter extends CustomPainter {
         final double y1 = top - lineGap * 0.5;
         final double y2 = y1 + lineGap;
         canvas.drawLine(Offset(x0, y1), Offset(x0, y2), barPaint);
+      } else if (c2 == '!') {
+        final double x0 = x + lineGap;
+        canvas.drawLine(
+          Offset(x0, top - lineGap * 0.5),
+          Offset(x0, top + lineGap * 2.5),
+          barPaint,
+        );
+      } else if (c2 == '>' || c2 == ':' || c2 == '<') {
+        _drawRepeatBarline(canvas, c2, x, top, lineGap, barPaint);
       } else {
         canvas.drawLine(
           Offset(x + lineGap, top),
@@ -4023,6 +4089,100 @@ class ProjectorPainter extends CustomPainter {
         }
       }
     }
+  }
+
+  void _drawRepeatBarline(
+    Canvas canvas,
+    String kind,
+    double x,
+    double top,
+    double lineGap,
+    Paint thinPaint,
+  ) {
+    final double y1 = top;
+    final double y2 = top + lineGap * 4;
+    final double centerY = (y1 + y2) / 2;
+    final double unit = lineGap * 0.45;
+    final Paint thickPaint = Paint()
+      ..color = _kottaInkColor
+      ..strokeWidth = math.max(2.0, thinPaint.strokeWidth * 2);
+
+    void line(double lineX, Paint paint) {
+      canvas.drawLine(Offset(lineX, y1), Offset(lineX, y2), paint);
+    }
+
+    void dots(double dotX) {
+      final Paint dotPaint = Paint()..color = _kottaInkColor;
+      final double radius = math.max(1.0, lineGap * 0.13);
+      canvas.drawCircle(
+        Offset(dotX, centerY - lineGap * 0.5),
+        radius,
+        dotPaint,
+      );
+      canvas.drawCircle(
+        Offset(dotX, centerY + lineGap * 0.5),
+        radius,
+        dotPaint,
+      );
+    }
+
+    final double centerX = x + lineGap;
+    switch (kind) {
+      case '>':
+        line(centerX, thinPaint);
+        line(centerX - unit * 2, thickPaint);
+        dots(centerX + unit * 2);
+        break;
+      case ':':
+        line(centerX, thickPaint);
+        line(centerX - unit, thinPaint);
+        line(centerX + unit, thinPaint);
+        dots(centerX - unit * 2.5);
+        dots(centerX + unit * 2.5);
+        break;
+      case '<':
+        line(centerX, thinPaint);
+        line(centerX + unit, thickPaint);
+        dots(centerX - unit * 2);
+        break;
+    }
+  }
+
+  void _drawAgogika(
+    Canvas canvas,
+    _KottaDrawState state, {
+    required Offset noteCenter,
+    required bool stemDown,
+    required double lineGap,
+  }) {
+    final String? assetName = switch (state.agogika) {
+      '-' => 'tenuto',
+      '.' => 'pont',
+      '>' => 'marcato1',
+      '^' => 'marcato2',
+      'K' => stemDown ? 'koronale' : 'koronafel',
+      'm' => 'mordent1',
+      'M' => 'mordent2',
+      't' => 'trilla1',
+      'T' => 'trilla2',
+      _ => null,
+    };
+    if (assetName == null) {
+      return;
+    }
+
+    final double size = state.agogika == '.' ? lineGap * 0.35 : lineGap * 1.25;
+    final double y =
+        noteCenter.dy + (stemDown ? lineGap * 1.25 : -lineGap * 1.25);
+    _drawKottaAsset(
+      canvas,
+      assetName,
+      Rect.fromCenter(
+        center: Offset(noteCenter.dx, y),
+        width: state.agogika == '-' ? lineGap * 1.1 : size,
+        height: size,
+      ),
+    );
   }
 
   void _trackSlurPoint(_KottaDrawState state, Offset noteCenter) {
@@ -4930,6 +5090,8 @@ class _KottaDrawState {
   bool tomor = false;
   bool gerenda = false;
   bool szaaratlan = false;
+  String agogika = ' ';
+  int staffLineCount = 5;
   String slurType = ' ';
   String slurNext = ' ';
   Offset? slurStart;
@@ -4951,6 +5113,8 @@ class _KottaDrawState {
     c.tomor = tomor;
     c.gerenda = gerenda;
     c.szaaratlan = szaaratlan;
+    c.agogika = agogika;
+    c.staffLineCount = staffLineCount;
     c.slurType = slurType;
     c.slurNext = slurNext;
     c.slurStart = slurStart;
