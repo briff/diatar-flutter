@@ -374,12 +374,7 @@ class ProjectorPainter extends CustomPainter {
       for (int i = 0; i < rows.length; i++)
         rowPrefixes[i].kotta.isNotEmpty || rows[i].inlinePrefix.kotta.isNotEmpty
             ? blockStartX + _kottaContinuationIndent(i, horizontalPad)
-            : _debugCenteredKottaStartX(
-                rows[i],
-                lines.first,
-                fontSize,
-                blockStartX + _kottaContinuationIndent(i, horizontalPad),
-              ),
+            : blockStartX + _kottaContinuationIndent(i, horizontalPad),
     ];
   }
 
@@ -2363,25 +2358,6 @@ class ProjectorPainter extends CustomPainter {
     return horizontalPad;
   }
 
-  double _debugCenteredKottaStartX(
-    _KottaRowLayout row,
-    _RenderLine line,
-    double fontSize,
-    double rowX,
-  ) {
-    if (row.words.isEmpty) {
-      return rowX;
-    }
-    final _KottaWordLayout firstSlot = row.words.first;
-    final String kotta = (line.words[firstSlot.wordIndex].kotta ?? '').trim();
-    if (kotta.isEmpty) {
-      return rowX;
-    }
-    final double lineGap = _kottaLineGap(fontSize);
-    final double rawWidth = _kottaRawWidth(kotta, lineGap, _KottaDrawState());
-    return rowX + (firstSlot.slotWidth - rawWidth) / 2.0;
-  }
-
   void _paintKottaAlignedTextRow(
     Canvas canvas,
     _RenderLine line,
@@ -3346,7 +3322,7 @@ class ProjectorPainter extends CustomPainter {
       return;
     }
     const double scale = 1.0;
-    final double startX = x + (wordWidth - rawWidth) / 2.0;
+    final double startX = x;
     final _KottaDrawState drawState = state ?? _KottaDrawState();
 
     if (drawStaff) {

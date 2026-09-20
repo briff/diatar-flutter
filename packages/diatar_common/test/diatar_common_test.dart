@@ -371,6 +371,33 @@ void main() {
     expect(textStartXs.first, greaterThan(rowStartXs.first));
   });
 
+  test('kotta starts at the same position as its following lyric', () {
+    final ProjectorPainter painter = ProjectorPainter(
+      frame: null,
+      globals: const ProjectionGlobals(useKotta: true, hCenter: false),
+      settings: const AppSettings(receiverUseKotta: true),
+    );
+
+    final List<double> kottaStartXs = painter.debugKottaVisibleStartXsForLine(
+      r'\Kr41a;Alfa',
+      fontSize: 24,
+      maxWidth: 320,
+      sizeWidth: 360,
+      horizontalPad: 16,
+    );
+    final List<double> textStartXs = painter.debugKottaTextStartXsForLine(
+      r'\Kr41a;Alfa',
+      fontSize: 24,
+      maxWidth: 320,
+      sizeWidth: 360,
+      horizontalPad: 16,
+    );
+
+    expect(kottaStartXs, hasLength(1));
+    expect(textStartXs, hasLength(1));
+    expect(kottaStartXs.single, textStartXs.single);
+  });
+
   test('kotta-separated parts of a word receive a baseline connector', () {
     final ProjectorPainter painter = ProjectorPainter(
       frame: null,
