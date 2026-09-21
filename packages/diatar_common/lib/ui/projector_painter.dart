@@ -2202,7 +2202,7 @@ class ProjectorPainter extends CustomPainter {
       }
       final int staffLineCount = _staffLineCountForLine(line);
       for (int i = 0; i < staffLineCount; i++) {
-        final double ly = rowTop + i * lineGap;
+        final double ly = rowTop + (5 - staffLineCount + i) * lineGap;
         canvas.drawLine(
           Offset(rowX, ly),
           Offset(rowX + row.width, ly),
@@ -2276,7 +2276,13 @@ class ProjectorPainter extends CustomPainter {
           blockStartX +
           _kottaContinuationIndent(rows.length - 1, continuationIndent);
       final double lastTop = baseTop + (rows.length - 1) * rowStep;
-      _drawForcedClosingBarline(canvas, lastX + last.width, lastTop, lineGap);
+      _drawForcedClosingBarline(
+        canvas,
+        lastX + last.width,
+        lastTop,
+        lineGap,
+        _staffLineCountForLine(line),
+      );
     }
 
     _endBeam(canvas, lineState, lineGap);
@@ -3313,6 +3319,7 @@ class ProjectorPainter extends CustomPainter {
     double endX,
     double top,
     double lineGap,
+    int staffLineCount,
   ) {
     final Paint thin = Paint()
       ..color = _kottaInkColor
@@ -3321,13 +3328,24 @@ class ProjectorPainter extends CustomPainter {
       ..color = _kottaInkColor
       ..strokeWidth = 2.2;
 
-    final double y1 = top;
-    final double y2 = top + lineGap * 4;
+    final _KottaBarBounds bounds = _kottaBarBounds(
+      top,
+      lineGap,
+      staffLineCount,
+    );
     final double xThin = endX + lineGap * 0.35;
     final double xThick = endX + lineGap * 0.65;
 
-    canvas.drawLine(Offset(xThin, y1), Offset(xThin, y2), thin);
-    canvas.drawLine(Offset(xThick, y1), Offset(xThick, y2), thick);
+    canvas.drawLine(
+      Offset(xThin, bounds.top),
+      Offset(xThin, bounds.bottom),
+      thin,
+    );
+    canvas.drawLine(
+      Offset(xThick, bounds.top),
+      Offset(xThick, bounds.bottom),
+      thick,
+    );
   }
 
   void _drawSimpleKotta(
@@ -3368,7 +3386,7 @@ class ProjectorPainter extends CustomPainter {
         ..strokeWidth = 1;
       final int staffLineCount = _staffLineCountForCommands(cmds);
       for (int i = 0; i < staffLineCount; i++) {
-        final double y = top + i * lineGap;
+        final double y = top + (5 - staffLineCount + i) * lineGap;
         canvas.drawLine(Offset(x, y), Offset(x + wordWidth, y), staffPaint);
       }
     }
@@ -3673,7 +3691,9 @@ class ProjectorPainter extends CustomPainter {
               _linePos(top, lineGap, 7) -
               lineGap * 0.5 * (1 + ('abcdefghi'.indexOf(c2)));
         }
-        final double rat = (lineGap * 4.0) / (v1 - v5);
+        final double rat = 'abcdefghi'.contains(c2)
+            ? lineGap / (_kcDkulcsV1 - _kcDkulcsV2)
+            : (lineGap * 4.0) / (v1 - v5);
         final double y1 = y0 - v5 * rat;
         final double x2 = x + w * rat;
         final double y2 = y1 + h * rat;
@@ -4004,54 +4024,59 @@ class ProjectorPainter extends CustomPainter {
       final Paint barPaint = Paint()
         ..color = _kottaInkColor
         ..strokeWidth = 1.2;
+      final _KottaBarBounds barBounds = _kottaBarBounds(
+        top,
+        lineGap,
+        state.staffLineCount,
+      );
       if (c2 == '1' || c2 == '|') {
         if (c2 == '|') {
           canvas.drawLine(
-            Offset(x + lineGap * 0.8, top),
-            Offset(x + lineGap * 0.8, top + lineGap * 4),
+            Offset(x + lineGap * 0.8, barBounds.top),
+            Offset(x + lineGap * 0.8, barBounds.bottom),
             barPaint,
           );
           canvas.drawLine(
-            Offset(x + lineGap * 1.2, top),
-            Offset(x + lineGap * 1.2, top + lineGap * 4),
+            Offset(x + lineGap * 1.2, barBounds.top),
+            Offset(x + lineGap * 1.2, barBounds.bottom),
             barPaint,
           );
         } else {
           canvas.drawLine(
-            Offset(x + lineGap, top),
-            Offset(x + lineGap, top + lineGap * 4),
+            Offset(x + lineGap, barBounds.top),
+            Offset(x + lineGap, barBounds.bottom),
             barPaint,
           );
         }
       } else if (c2 == '.') {
         canvas.drawLine(
-          Offset(x + lineGap * 0.8, top),
-          Offset(x + lineGap * 0.8, top + lineGap * 4),
+          Offset(x + lineGap * 0.8, barBounds.top),
+          Offset(x + lineGap * 0.8, barBounds.bottom),
           barPaint,
         );
         canvas.drawLine(
-          Offset(x + lineGap * 1.2, top),
-          Offset(x + lineGap * 1.2, top + lineGap * 4),
+          Offset(x + lineGap * 1.2, barBounds.top),
+          Offset(x + lineGap * 1.2, barBounds.bottom),
           barPaint..strokeWidth = 2.0,
         );
       } else if (c2 == "'") {
         final double x0 = x + lineGap;
-        final double y1 = top - lineGap * 0.5;
+        final double y1 = barBounds.top - lineGap * 0.5;
         final double y2 = y1 + lineGap;
         canvas.drawLine(Offset(x0, y1), Offset(x0, y2), barPaint);
       } else if (c2 == '!') {
         final double x0 = x + lineGap;
         canvas.drawLine(
-          Offset(x0, top - lineGap * 0.5),
-          Offset(x0, top + lineGap * 2.5),
+          Offset(x0, barBounds.top - lineGap * 0.5),
+          Offset(x0, barBounds.top + lineGap * 2.5),
           barPaint,
         );
       } else if (c2 == '>' || c2 == ':' || c2 == '<') {
-        _drawRepeatBarline(canvas, c2, x, top, lineGap, barPaint);
+        _drawRepeatBarline(canvas, c2, x, lineGap, barBounds, barPaint);
       } else {
         canvas.drawLine(
-          Offset(x + lineGap, top),
-          Offset(x + lineGap, top + lineGap * 4),
+          Offset(x + lineGap, barBounds.top),
+          Offset(x + lineGap, barBounds.bottom),
           barPaint,
         );
       }
@@ -4068,14 +4093,15 @@ class ProjectorPainter extends CustomPainter {
         _ => null,
       };
       if (restName != null) {
+        final _KottaRestGeometry geometry = _kottaRestGeometry(c2, lineGap);
         _drawKottaAsset(
           canvas,
           restName,
           Rect.fromLTWH(
-            x + lineGap * 0.3,
-            top + lineGap * 0.6,
-            lineGap * 1.4,
-            lineGap * 2.6,
+            x + geometry.leftOffset,
+            top + geometry.topOffset,
+            geometry.width,
+            geometry.height,
           ),
         );
         if (c1 == 'S') {
@@ -4091,6 +4117,66 @@ class ProjectorPainter extends CustomPainter {
           );
         }
       }
+    }
+  }
+
+  _KottaBarBounds _kottaBarBounds(
+    double top,
+    double lineGap,
+    int staffLineCount,
+  ) {
+    if (staffLineCount <= 1) {
+      return _KottaBarBounds(top + lineGap * 3.5, top + lineGap * 4.5);
+    }
+    return _KottaBarBounds(
+      top + (5 - staffLineCount) * lineGap,
+      top + lineGap * 4,
+    );
+  }
+
+  _KottaRestGeometry _kottaRestGeometry(String rhythm, double lineGap) {
+    switch (rhythm) {
+      case '1':
+        final double scale = lineGap / _kcSzunet1V;
+        return _KottaRestGeometry(
+          leftOffset: _kcSzunet1W * scale / 2,
+          topOffset: lineGap,
+          width: _kcSzunet1W * scale,
+          height: _kcSzunet1H * scale,
+        );
+      case '2':
+        final double scale = lineGap / _kcSzunet2V;
+        final double height = _kcSzunet2H * scale;
+        return _KottaRestGeometry(
+          leftOffset: _kcSzunet2W * scale / 2,
+          topOffset: lineGap * 2 - height,
+          width: _kcSzunet2W * scale,
+          height: height,
+        );
+      case '4':
+        final double scale = 2 * lineGap / (_kcSzunet4V2 - _kcSzunet4V4);
+        return _KottaRestGeometry(
+          leftOffset: lineGap * 0.3,
+          topOffset: lineGap - _kcSzunet4V4 * scale,
+          width: _kcSzunet4W * scale,
+          height: _kcSzunet4H * scale,
+        );
+      case '8':
+        final double scale = 2 * lineGap / (_kcSzunet8V2 - _kcSzunet8V4);
+        return _KottaRestGeometry(
+          leftOffset: lineGap * 0.3,
+          topOffset: lineGap - _kcSzunet8V4 * scale,
+          width: _kcSzunet8W * scale,
+          height: _kcSzunet8H * scale,
+        );
+      default:
+        final double scale = 2 * lineGap / (_kcSzunet16V2 - _kcSzunet16V4);
+        return _KottaRestGeometry(
+          leftOffset: lineGap * 0.3,
+          topOffset: lineGap - _kcSzunet16V4 * scale,
+          width: _kcSzunet16W * scale,
+          height: _kcSzunet16H * scale,
+        );
     }
   }
 
@@ -4124,12 +4210,12 @@ class ProjectorPainter extends CustomPainter {
     Canvas canvas,
     String kind,
     double x,
-    double top,
     double lineGap,
+    _KottaBarBounds bounds,
     Paint thinPaint,
   ) {
-    final double y1 = top;
-    final double y2 = top + lineGap * 4;
+    final double y1 = bounds.top;
+    final double y2 = bounds.bottom;
     final double centerY = (y1 + y2) / 2;
     final double unit = lineGap * 0.45;
     final Paint thickPaint = Paint()
@@ -5141,6 +5227,27 @@ class _AgogikaMetrics {
   final double lineGap;
 }
 
+class _KottaBarBounds {
+  const _KottaBarBounds(this.top, this.bottom);
+
+  final double top;
+  final double bottom;
+}
+
+class _KottaRestGeometry {
+  const _KottaRestGeometry({
+    required this.leftOffset,
+    required this.topOffset,
+    required this.width,
+    required this.height,
+  });
+
+  final double leftOffset;
+  final double topOffset;
+  final double width;
+  final double height;
+}
+
 class _KottaDrawState {
   String kulcs = ' ';
   int elojegy = 0;
@@ -5442,6 +5549,11 @@ const double _kcSzunet2W = 125.0;
 const double _kcSzunet4W = 81.0;
 const double _kcSzunet8W = 58.0;
 const double _kcSzunet16W = 77.0;
+const double _kcSzunet1H = 33.0;
+const double _kcSzunet2H = 33.0;
+const double _kcSzunet4H = 202.0;
+const double _kcSzunet8H = 122.0;
+const double _kcSzunet16H = 141.0;
 const double _kcSzunet1V = 60.0;
 const double _kcSzunet2V = 60.0;
 const double _kcSzunet4V2 = 175.0;
