@@ -514,6 +514,32 @@ void main() {
     expect(continuations.any((List<bool> pair) => pair[0] && pair[1]), true);
   });
 
+  test('tie underline ends before the trailing word space', () {
+    final ProjectorPainter painter = ProjectorPainter(
+      frame: null,
+      globals: const ProjectionGlobals(),
+      settings: const AppSettings(),
+    );
+
+    final List<double> ends = painter.debugTieUnderlineEndAndDisplayXsForLine(
+      r'\(word\) next',
+    );
+
+    expect(ends, hasLength(2));
+    expect(ends[0], lessThan(ends[1]));
+  });
+
+  test('tie underline tips stay at or below the text baseline', () {
+    final ProjectorPainter painter = ProjectorPainter(
+      frame: null,
+      globals: const ProjectionGlobals(),
+      settings: const AppSettings(),
+    );
+
+    expect(painter.debugTieUnderlineTipOffset(12), 0);
+    expect(painter.debugTieUnderlineTipOffset(24), greaterThanOrEqualTo(1));
+  });
+
   test('slur apex moves away from intermediate notes', () {
     final ProjectorPainter painter = ProjectorPainter(
       frame: null,

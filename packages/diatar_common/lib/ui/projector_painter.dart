@@ -236,6 +236,48 @@ class ProjectorPainter extends CustomPainter {
   }
 
   @visibleForTesting
+  List<double> debugTieUnderlineEndAndDisplayXsForLine(
+    String source, {
+    double fontSize = 24,
+  }) {
+    final List<_RenderLine> lines = _parseOneLine(source);
+    if (lines.isEmpty) {
+      return const <double>[];
+    }
+    final _RenderLine line = lines.first;
+    final _TextRowPaintLayout layout = _buildTextRowPaintLayout(
+      line,
+      List<bool>.filled(line.words.length, false),
+      fontSize,
+    );
+    final int index = layout.wordLayouts.lastIndexWhere(
+      (_TextWordLayout word) => word.tieUnderline,
+    );
+    if (index < 0) {
+      return const <double>[];
+    }
+    final _TextWordLayout word = layout.wordLayouts[index];
+    final List<ui.TextBox> tieBoxes = layout.painter.getBoxesForSelection(
+      TextSelection(baseOffset: word.start, extentOffset: word.end),
+    );
+    final int displayEnd = index + 1 < layout.wordLayouts.length
+        ? layout.wordLayouts[index + 1].start
+        : layout.painter.plainText.length;
+    final List<ui.TextBox> displayBoxes = layout.painter.getBoxesForSelection(
+      TextSelection(baseOffset: word.start, extentOffset: displayEnd),
+    );
+    if (tieBoxes.isEmpty || displayBoxes.isEmpty) {
+      return const <double>[];
+    }
+    return <double>[tieBoxes.last.right, displayBoxes.last.right];
+  }
+
+  @visibleForTesting
+  double debugTieUnderlineTipOffset(double fontSize) {
+    return _tieUnderlineTipOffset(fontSize);
+  }
+
+  @visibleForTesting
   Offset debugSlurApexForPoints(
     List<Offset> points, {
     required bool down,
@@ -1449,7 +1491,7 @@ class ProjectorPainter extends CustomPainter {
       wordLayouts.add(
         _TextWordLayout(
           start: offset,
-          end: offset + display.length,
+          end: offset + word.text.length,
           tieUnderline: word.tieUnderline,
           color: baseColor,
         ),
@@ -1480,11 +1522,8 @@ class ProjectorPainter extends CustomPainter {
     }
 
     final ui.LineMetrics metric = metrics.first;
-    final double underlineY =
-        y + metric.baseline + math.max(1.0, fontSize * 0.08);
-    final double thickness = math.max(1.0, fontSize * 0.045);
-    final double capLength = math.max(thickness * 2.5, fontSize * 0.22);
-    final double capLift = math.max(thickness * 1.8, fontSize * 0.11);
+    final double baselineY = y + metric.baseline;
+    final double textBottomY = baselineY + metric.descent;
 
     int index = 0;
     while (index < layout.wordLayouts.length) {
@@ -1528,48 +1567,16 @@ class ProjectorPainter extends CustomPainter {
 
       final double startX = x + startBoxes.first.left;
       final double endX = x + endBoxes.last.right;
-      final double bodyStart = continuedFromPrevious
-          ? startX
-          : math.min(startX + capLength, endX);
-      final double bodyEnd = continuesToNext
-          ? endX
-          : math.max(bodyStart, endX - capLength);
-
-      final Paint bodyPaint = Paint()
-        ..color = startLayout.color
-        ..strokeWidth = thickness
-        ..style = PaintingStyle.stroke
-        ..strokeCap = StrokeCap.butt;
-      canvas.drawLine(
-        Offset(bodyStart, underlineY),
-        Offset(bodyEnd, underlineY),
-        bodyPaint,
+      _paintTieUnderline(
+        canvas,
+        startX: startX,
+        endX: endX,
+        tipY: baselineY + _tieUnderlineTipOffset(fontSize),
+        bottomY: textBottomY,
+        color: startLayout.color,
+        continuedFromPrevious: continuedFromPrevious,
+        continuesToNext: continuesToNext,
       );
-
-      if (!continuedFromPrevious) {
-        _paintTieCap(
-          canvas,
-          bodyStart,
-          startX,
-          underlineY,
-          capLift,
-          thickness,
-          startLayout.color,
-          left: true,
-        );
-      }
-      if (!continuesToNext) {
-        _paintTieCap(
-          canvas,
-          bodyEnd,
-          endX,
-          underlineY,
-          capLift,
-          thickness,
-          startLayout.color,
-          left: false,
-        );
-      }
 
       index = runEnd + 1;
     }
@@ -1597,11 +1604,8 @@ class ProjectorPainter extends CustomPainter {
       textDirection: TextDirection.ltr,
     )..layout();
     final ui.LineMetrics metric = measure.computeLineMetrics().first;
-    final double underlineY =
-        y + metric.baseline + math.max(1.0, fontSize * 0.08);
-    final double thickness = math.max(1.0, fontSize * 0.045);
-    final double capLength = math.max(thickness * 2.5, fontSize * 0.22);
-    final double capLift = math.max(thickness * 1.8, fontSize * 0.11);
+    final double baselineY = y + metric.baseline;
+    final double textBottomY = baselineY + metric.descent;
 
     int index = 0;
     while (index < slots.length) {
@@ -1627,87 +1631,113 @@ class ProjectorPainter extends CustomPainter {
           sourceWords[endSlot.wordIndex + 1].tieUnderline;
 
       final double startX = startSlot.left;
-      final double endX = endSlot.right;
-      final double bodyStart = continuedFromPrevious
-          ? startX
-          : math.min(startX + capLength, endX);
-      final double bodyEnd = continuesToNext
-          ? endX
-          : math.max(bodyStart, endX - capLength);
-
-      final Paint bodyPaint = Paint()
-        ..color = startSlot.color
-        ..strokeWidth = thickness
-        ..style = PaintingStyle.stroke
-        ..strokeCap = StrokeCap.butt;
-      canvas.drawLine(
-        Offset(bodyStart, underlineY),
-        Offset(bodyEnd, underlineY),
-        bodyPaint,
+      final double endX = endSlot.tieRight;
+      _paintTieUnderline(
+        canvas,
+        startX: startX,
+        endX: endX,
+        tipY: baselineY + _tieUnderlineTipOffset(fontSize),
+        bottomY: textBottomY,
+        color: startSlot.color,
+        continuedFromPrevious: continuedFromPrevious,
+        continuesToNext: continuesToNext,
       );
-
-      if (!continuedFromPrevious) {
-        _paintTieCap(
-          canvas,
-          bodyStart,
-          startX,
-          underlineY,
-          capLift,
-          thickness,
-          startSlot.color,
-          left: true,
-        );
-      }
-      if (!continuesToNext) {
-        _paintTieCap(
-          canvas,
-          bodyEnd,
-          endX,
-          underlineY,
-          capLift,
-          thickness,
-          startSlot.color,
-          left: false,
-        );
-      }
 
       index = runEnd + 1;
     }
   }
 
-  void _paintTieCap(
-    Canvas canvas,
-    double bodyEdgeX,
-    double tipX,
-    double baselineY,
-    double capLift,
-    double thickness,
-    Color color, {
-    required bool left,
+  double _tieUnderlineTipOffset(double fontSize) {
+    final double underlineOffset = math.max(1.0, fontSize * 0.08);
+    final double thickness = math.max(1.0, fontSize * 0.045);
+    final double desiredOffset = math.max(0, (fontSize - 14) / 10);
+    return math.min(
+      desiredOffset,
+      math.max(0, underlineOffset - thickness / 2),
+    );
+  }
+
+  void _paintTieUnderline(
+    Canvas canvas, {
+    required double startX,
+    required double endX,
+    required double tipY,
+    required double bottomY,
+    required Color color,
+    required bool continuedFromPrevious,
+    required bool continuesToNext,
   }) {
-    final double direction = left ? -1.0 : 1.0;
-    final double controlX1 = bodyEdgeX + direction * thickness * 0.8;
-    final double controlX2 =
-        bodyEdgeX + direction * math.max(thickness * 1.6, capLift * 0.45);
-    final Path path = Path()
-      ..moveTo(bodyEdgeX, baselineY)
-      ..cubicTo(
-        controlX1,
-        baselineY - thickness * 0.15,
-        controlX2,
-        baselineY - capLift,
-        tipX,
-        baselineY - capLift * 0.95,
-      )
-      ..cubicTo(
-        controlX2,
-        baselineY - capLift * 0.15,
-        controlX1,
-        baselineY + thickness * 0.2,
-        bodyEdgeX,
-        baselineY,
-      )
-      ..close();
+    if (endX <= startX) {
+      return;
+    }
+
+    final double depth = math.max(1.0, bottomY - tipY);
+    final double topMiddleY = tipY + depth * 0.72;
+    final double middleX = continuedFromPrevious
+        ? startX
+        : continuesToNext
+        ? endX
+        : (startX + endX) / 2;
+    final Path path = Path();
+
+    if (continuedFromPrevious) {
+      path.moveTo(startX, bottomY);
+    } else {
+      final double control = math.min(depth, (middleX - startX) * 0.45);
+      path
+        ..moveTo(startX, tipY)
+        ..cubicTo(
+          startX + control,
+          tipY + control,
+          middleX - control,
+          bottomY,
+          middleX,
+          bottomY,
+        );
+    }
+
+    if (continuesToNext) {
+      path.lineTo(endX, bottomY);
+    } else {
+      final double control = math.min(depth, (endX - middleX) * 0.45);
+      path.cubicTo(
+        middleX + control,
+        bottomY,
+        endX - control,
+        tipY + control,
+        endX,
+        tipY,
+      );
+    }
+
+    if (continuesToNext) {
+      path.lineTo(endX, topMiddleY);
+    } else {
+      final double control = math.min(depth, (endX - middleX) * 0.45);
+      path.cubicTo(
+        endX - control,
+        tipY + depth * 0.55,
+        middleX + control,
+        topMiddleY,
+        middleX,
+        topMiddleY,
+      );
+    }
+
+    if (continuedFromPrevious) {
+      path.lineTo(startX, topMiddleY);
+    } else {
+      final double control = math.min(depth, (middleX - startX) * 0.45);
+      path.cubicTo(
+        middleX - control,
+        topMiddleY,
+        startX + control,
+        tipY + depth * 0.55,
+        startX,
+        tipY,
+      );
+    }
+    path.close();
 
     canvas.drawPath(
       path,
@@ -2440,11 +2470,15 @@ class ProjectorPainter extends CustomPainter {
       )..layout();
       final double slotLeft = cx + inset;
       tp.paint(canvas, Offset(slotLeft, y));
+      final List<ui.TextBox> textBoxes = tp.getBoxesForSelection(
+        TextSelection(baseOffset: 0, extentOffset: w.text.length),
+      );
       slotLayouts.add(
         _KottaTextSlotLayout(
           wordIndex: slot.wordIndex,
           left: slotLeft,
           right: slotLeft + tp.width,
+          tieRight: slotLeft + (textBoxes.isEmpty ? 0 : textBoxes.last.right),
           baseline: y + tp.computeLineMetrics().first.baseline,
           tieUnderline: w.tieUnderline,
           color: baseColor,
@@ -5416,6 +5450,7 @@ class _KottaTextSlotLayout {
     required this.wordIndex,
     required this.left,
     required this.right,
+    required this.tieRight,
     required this.baseline,
     required this.tieUnderline,
     required this.color,
@@ -5425,6 +5460,7 @@ class _KottaTextSlotLayout {
   final int wordIndex;
   final double left;
   final double right;
+  final double tieRight;
   final double baseline;
   final bool tieUnderline;
   final Color color;
