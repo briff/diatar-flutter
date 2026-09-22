@@ -20,6 +20,7 @@ import '../core/custom_order/custom_order_normalizer.dart';
 import '../core/custom_order/custom_order_navigation_policy.dart';
 import '../core/custom_order/custom_order_bootstrap_policy.dart';
 import '../core/custom_order/custom_order_entry_mapper.dart';
+import '../core/custom_order/custom_order_set_limit_policy.dart';
 import '../core/custom_order/entry_label_service.dart';
 import '../core/custom_order/entry_match_policy.dart';
 import '../core/custom_order/entry_resolver.dart';
@@ -147,6 +148,8 @@ class DiatarMainController extends ChangeNotifier {
       const CustomOrderNavigationPolicy();
   final CustomOrderBootstrapPolicy _customOrderBootstrapPolicy =
       const CustomOrderBootstrapPolicy();
+  final CustomOrderSetLimitPolicy _customOrderSetLimitPolicy =
+      const CustomOrderSetLimitPolicy();
   final CustomOrderEntryMapper _customOrderEntryMapper =
       const CustomOrderEntryMapper();
   final ProjectionGlobalsPolicy _projectionGlobalsPolicy =
@@ -312,6 +315,7 @@ class DiatarMainController extends ChangeNotifier {
 
   /// Egyedi azonosító-generálás új diasorokhez.
   int _customOrderSetIdCounter = 0;
+  bool _customOrderLimitExceeded = false;
 
   CustomOrderSet? get _activeOrderSet {
     if (_activeOrderSetIndex < 0 ||
@@ -323,6 +327,12 @@ class DiatarMainController extends ChangeNotifier {
 
   /// Az aktív diasor egyedi azonosítója, vagy null ha nincs betöltve.
   String? get activeCustomOrderSetId => _activeOrderSet?.id;
+  bool get customOrderLimitExceeded => _customOrderLimitExceeded;
+  bool get activeCustomOrderSetHasHotkey {
+    final String? activeId = activeCustomOrderSetId;
+    return activeId != null &&
+        settings.desktopOrderSetHotkeys.containsValue(activeId);
+  }
 
   String _nextCustomOrderSetId() {
     _customOrderSetIdCounter++;
@@ -334,7 +344,47 @@ class DiatarMainController extends ChangeNotifier {
       id: _nextCustomOrderSetId(),
       name: '',
       entries: const <CustomOrderEntry>[],
+      lastUsed: DateTime.now().microsecondsSinceEpoch,
     );
+  }
+
+  void _touchCustomOrderSet(int index) {
+    if (index < 0 || index >= _customOrderSets.length) {
+      return;
+    }
+    _customOrderSets[index] = _customOrderSets[index].copyWith(
+      lastUsed: DateTime.now().microsecondsSinceEpoch,
+    );
+  }
+
+  void _touchActiveCustomOrderSet() {
+    _touchCustomOrderSet(_activeOrderSetIndex);
+  }
+
+  bool _makeRoomForCustomOrderSet() {
+    final int maximumCount = settings.maxCustomOrderSets.clamp(
+      AppSettings.minCustomOrderSets,
+      AppSettings.maxCustomOrderSetsLimit,
+    );
+    final Set<String> protectedIds = settings.desktopOrderSetHotkeys.values
+        .toSet();
+    while (_customOrderSets.length >= maximumCount) {
+      final int index = _customOrderSetLimitPolicy.evictionIndex(
+        _customOrderSets,
+        maximumCount: maximumCount,
+        protectedIds: protectedIds,
+      );
+      if (index < 0) {
+        return true;
+      }
+      _customOrderSets.removeAt(index);
+      if (_activeOrderSetIndex > index) {
+        _activeOrderSetIndex--;
+      } else if (_activeOrderSetIndex == index) {
+        _activeOrderSetIndex = -1;
+      }
+    }
+    return false;
   }
 
   void _ensureCustomOrderSet() {
@@ -397,6 +447,7 @@ class DiatarMainController extends ChangeNotifier {
           sourceType: s.sourceType,
           cursor: s.cursor,
           isModified: s.isModified,
+          lastUsed: s.lastUsed,
         );
       }).toList();
       _activeOrderSetIndex = storedSets.activeIndex;
@@ -487,6 +538,7 @@ class DiatarMainController extends ChangeNotifier {
             sourceType: s.sourceType,
             cursor: s.cursor,
             isModified: s.isModified,
+            lastUsed: s.lastUsed,
           ),
         )
         .toList();
@@ -508,6 +560,7 @@ class DiatarMainController extends ChangeNotifier {
     _dismissSongOrderPreview();
     _persistActiveSetToSets();
     _activeOrderSetIndex = index;
+    _touchActiveCustomOrderSet();
     final CustomOrderSet set = _customOrderSets[index];
     _customOrder = List<CustomOrderEntry>.from(set.entries);
     _lastImportedCustomOrderBaseName = set.baseName;
@@ -613,6 +666,7 @@ class DiatarMainController extends ChangeNotifier {
     final bool currentlyEnabled = _customOrderSets[index].enabled;
     _customOrderSets[index] = _customOrderSets[index].copyWith(
       enabled: !currentlyEnabled,
+      lastUsed: DateTime.now().microsecondsSinceEpoch,
     );
     if (index == _activeOrderSetIndex) {
       customOrderActive = !currentlyEnabled && _customOrder.isNotEmpty;
@@ -690,6 +744,7 @@ class DiatarMainController extends ChangeNotifier {
       name: trimmed,
       baseName: trimmed,
       isModified: true,
+      lastUsed: DateTime.now().microsecondsSinceEpoch,
     );
     if (index == _activeOrderSetIndex) {
       _lastImportedCustomOrderBaseName = trimmed;
@@ -708,11 +763,13 @@ class DiatarMainController extends ChangeNotifier {
     }
     _dismissSongOrderPreview();
     _persistActiveSetToSets();
+    _customOrderLimitExceeded = _makeRoomForCustomOrderSet();
     final CustomOrderSet newSet = CustomOrderSet(
       id: _nextCustomOrderSetId(),
       name: trimmed,
       entries: const <CustomOrderEntry>[],
       enabled: true,
+      lastUsed: DateTime.now().microsecondsSinceEpoch,
     );
     _customOrderSets.add(newSet);
     _activeOrderSetIndex = _customOrderSets.length - 1;
@@ -2918,6 +2975,7 @@ class DiatarMainController extends ChangeNotifier {
         : null;
 
     _customOrder = entries.map(normalizeEntry).toList();
+    _touchActiveCustomOrderSet();
     if (markModified &&
         _activeOrderSetIndex >= 0 &&
         _activeOrderSetIndex < _customOrderSets.length) {
@@ -2989,6 +3047,8 @@ class DiatarMainController extends ChangeNotifier {
     CustomOrderEntry rawEntry, {
     int? preferredCursor,
   }) async {
+    _touchActiveCustomOrderSet();
+    unawaited(_persistAllSets());
     final CustomOrderEntry entry = normalizeEntry(rawEntry);
     if (!entry.isSongEntry) {
       int targetCursor = preferredCursor ?? _customOrder.indexOf(entry);
@@ -3110,6 +3170,11 @@ class DiatarMainController extends ChangeNotifier {
         _selectByCustomOrderCursor(prev, sync: true);
         return;
       }
+    }
+
+    if (sync) {
+      _touchActiveCustomOrderSet();
+      unawaited(_persistAllSets());
     }
 
     if (!entry.isSongEntry) {
@@ -3636,6 +3701,7 @@ class DiatarMainController extends ChangeNotifier {
     String? sourceFileName,
     CustomOrderImportMode mode = CustomOrderImportMode.addNew,
   }) async {
+    _customOrderLimitExceeded = false;
     final File f = FileSystemProvider.instance.file(path);
     if (!await f.exists()) {
       _setStatus('statusDiaFileMissing', <String, String>{'path': path});
@@ -3852,6 +3918,7 @@ class DiatarMainController extends ChangeNotifier {
       // Előbb elmentjük az eddigi aktív diasor kurzorát, mielőtt
       // átváltunk az újonnan betöltöttre.
       _persistActiveSetToSets();
+      _customOrderLimitExceeded = _makeRoomForCustomOrderSet();
       final CustomOrderSet newSet = CustomOrderSet(
         id: _nextCustomOrderSetId(),
         name: baseName ?? '',
@@ -3860,6 +3927,7 @@ class DiatarMainController extends ChangeNotifier {
         baseName: baseName,
         sourceType: null,
         isModified: false,
+        lastUsed: DateTime.now().microsecondsSinceEpoch,
       );
       _customOrderSets.add(newSet);
       _activeOrderSetIndex = _customOrderSets.length - 1;
@@ -5065,6 +5133,8 @@ class DiatarMainController extends ChangeNotifier {
     CustomOrderEntry entry, {
     required int cursor,
   }) async {
+    _touchActiveCustomOrderSet();
+    unawaited(_persistAllSets());
     _projectedCustomCursor = cursor;
 
     if (entry.isSeparator) {
@@ -5134,6 +5204,7 @@ class DiatarMainController extends ChangeNotifier {
     _customOrder = <CustomOrderEntry>[..._customOrder, entry];
     customOrderActive = _customOrder.isNotEmpty;
     _customOrderCursor = _customOrder.length - 1;
+    _touchActiveCustomOrderSet();
     await _persistCurrentCustomOrder();
     _persistActiveSetToSets();
     await _persistAllSets();

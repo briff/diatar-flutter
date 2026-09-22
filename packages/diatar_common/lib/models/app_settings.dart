@@ -1,6 +1,10 @@
 import 'package:flutter/widgets.dart';
 
 class AppSettings {
+  static const int minCustomOrderSets = 1;
+  static const int maxCustomOrderSetsLimit = 20;
+  static const int defaultMaxCustomOrderSets = 10;
+
   const AppSettings({
     this.port = 1024,
     this.tcpClientEnabled = true,
@@ -63,6 +67,7 @@ class AppSettings {
     this.landscapeControlsRatio,
     this.appThemeMode = 0,
     this.appLanguage = '',
+    this.maxCustomOrderSets = defaultMaxCustomOrderSets,
     this.projectionLocked = false,
     this.desktopProjectorEnabled = false,
     this.desktopProjectorMonitor = -1,
@@ -156,6 +161,7 @@ class AppSettings {
   final double? landscapeControlsRatio;
   final int appThemeMode;
   final String appLanguage;
+  final int maxCustomOrderSets;
   final bool projectionLocked;
   final bool desktopProjectorEnabled;
   final int desktopProjectorMonitor;
@@ -256,6 +262,7 @@ class AppSettings {
     double? landscapeControlsRatio,
     int? appThemeMode,
     String? appLanguage,
+    int? maxCustomOrderSets,
     bool? projectionLocked,
     bool? desktopProjectorEnabled,
     int? desktopProjectorMonitor,
@@ -351,6 +358,7 @@ class AppSettings {
           landscapeControlsRatio ?? this.landscapeControlsRatio,
       appThemeMode: appThemeMode ?? this.appThemeMode,
       appLanguage: appLanguage ?? this.appLanguage,
+      maxCustomOrderSets: maxCustomOrderSets ?? this.maxCustomOrderSets,
       projectionLocked: projectionLocked ?? this.projectionLocked,
       desktopProjectorEnabled:
           desktopProjectorEnabled ?? this.desktopProjectorEnabled,
@@ -425,6 +433,7 @@ class AppSettings {
       'projBackTrans': projBackTrans,
       'projBlankTrans': projBlankTrans,
       'projShowBackgroundImage': projShowBackgroundImage,
+      'maxCustomOrderSets': maxCustomOrderSets,
       'desktopProjectorEnabled': desktopProjectorEnabled,
       'desktopProjectorMonitor': desktopProjectorMonitor,
       'externalCommandOnStart': externalCommandOnStart,
@@ -515,6 +524,10 @@ class AppSettings {
       projBackTrans: intValue('projBackTrans', 0),
       projBlankTrans: intValue('projBlankTrans', 0),
       projShowBackgroundImage: boolValue('projShowBackgroundImage', true),
+      maxCustomOrderSets: intValue(
+        'maxCustomOrderSets',
+        defaultMaxCustomOrderSets,
+      ).clamp(minCustomOrderSets, maxCustomOrderSetsLimit),
       desktopProjectorEnabled: boolValue('desktopProjectorEnabled', false),
       desktopProjectorMonitor: intValue('desktopProjectorMonitor', -1),
       externalCommandOnStart: map['externalCommandOnStart'] as String? ?? '',

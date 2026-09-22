@@ -412,6 +412,59 @@ void main() {
       expect(controller.customOrderSets.single.enabled, isFalse);
     });
 
+    test(
+      'evicts the least recently used set when creating one at the limit',
+      () async {
+        final DiatarMainController controller = DiatarMainController()
+          ..settings = const AppSettings(maxCustomOrderSets: 2);
+
+        await controller.createCustomOrderSet('First');
+        await Future<void>.delayed(const Duration(milliseconds: 2));
+        await controller.createCustomOrderSet('Second');
+        await Future<void>.delayed(const Duration(milliseconds: 2));
+        await controller.setActiveCustomOrderSet(0);
+        await Future<void>.delayed(const Duration(milliseconds: 2));
+        await controller.createCustomOrderSet('Third');
+
+        expect(controller.customOrderSets.map((set) => set.name), <String>[
+          'First',
+          'Third',
+        ]);
+      },
+    );
+
+    test('keeps only the newly created set when the limit is one', () async {
+      final DiatarMainController controller = DiatarMainController()
+        ..settings = const AppSettings(maxCustomOrderSets: 1);
+
+      await controller.createCustomOrderSet('First');
+      await controller.createCustomOrderSet('Second');
+
+      expect(controller.customOrderSets, hasLength(1));
+      expect(controller.customOrderSets.single.name, 'Second');
+    });
+
+    test('keeps hotkey sets and reports a temporary limit overflow', () async {
+      final DiatarMainController controller = DiatarMainController()
+        ..settings = const AppSettings(
+          maxCustomOrderSets: 1,
+          desktopOrderSetHotkeys: <String, String>{'F1': 'protected'},
+        );
+      await controller.createCustomOrderSet('Protected');
+      final String protectedId = controller.customOrderSets.single.id;
+      controller.settings = controller.settings.copyWith(
+        desktopOrderSetHotkeys: <String, String>{'F1': protectedId},
+      );
+
+      await controller.createCustomOrderSet('New');
+
+      expect(controller.customOrderSets.map((set) => set.name), <String>[
+        'Protected',
+        'New',
+      ]);
+      expect(controller.customOrderLimitExceeded, isTrue);
+    });
+
     test('tracks unsaved changes to a custom order set', () async {
       final DiatarMainController controller = DiatarMainController();
       final Directory directory = await Directory.systemTemp.createTemp(

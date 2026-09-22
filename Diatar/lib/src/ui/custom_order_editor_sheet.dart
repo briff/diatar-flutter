@@ -1797,6 +1797,11 @@ Future<void> _openSync() async {
     if (!mounted) {
       return;
     }
+    if (controller.customOrderLimitExceeded) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(context.l10n.customOrderLimitExceededWarning)),
+      );
+    }
     setState(() {
       _entries = List<CustomOrderEntry>.from(controller.customOrder);
     });
@@ -2305,7 +2310,12 @@ Future<void> _openSync() async {
     if (file == null) {
       return;
     }
-    final CustomOrderImportMode? mode = await _askImportMode();
+    final CustomOrderImportMode? mode =
+        controller.settings.maxCustomOrderSets == AppSettings.minCustomOrderSets
+        ? controller.activeCustomOrderSetHasHotkey
+              ? CustomOrderImportMode.addNew
+              : CustomOrderImportMode.overwriteActive
+        : await _askImportMode();
     if (mode == null) {
       return;
     }
@@ -2321,9 +2331,12 @@ Future<void> _openSync() async {
     setState(() {
       _entries = List<CustomOrderEntry>.from(controller.customOrder);
     });
+    final String message = controller.customOrderLimitExceeded
+        ? context.l10n.customOrderLimitExceededWarning
+        : context.l10n.loadedCount(count);
     ScaffoldMessenger.of(
       context,
-    ).showSnackBar(SnackBar(content: Text(context.l10n.loadedCount(count))));
+    ).showSnackBar(SnackBar(content: Text(message)));
   }
 
   Widget _buildCurrentOrderList() {

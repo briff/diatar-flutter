@@ -149,6 +149,7 @@ class _DiatarSettingsSheetState extends State<DiatarSettingsSheet> {
   late int _projBlankTrans;
   late int _appThemeMode;
   late String _appLanguage;
+  late int _maxCustomOrderSets;
   late bool _homeShowHighlightControls;
   late bool _projHCenter;
   late bool _projVCenter;
@@ -257,6 +258,10 @@ class _DiatarSettingsSheetState extends State<DiatarSettingsSheet> {
     _projBlankTrans = s.projBlankTrans.clamp(0, 100);
     _appThemeMode = s.appThemeMode.clamp(0, 1);
     _appLanguage = _isSupportedLanguage(s.appLanguage) ? s.appLanguage : '';
+    _maxCustomOrderSets = s.maxCustomOrderSets.clamp(
+      AppSettings.minCustomOrderSets,
+      AppSettings.maxCustomOrderSetsLimit,
+    );
     _homeShowHighlightControls = s.homeShowHighlightControls;
     _projHCenter = s.projHCenter;
     _projVCenter = s.projVCenter;
@@ -1887,6 +1892,22 @@ class _DiatarSettingsSheetState extends State<DiatarSettingsSheet> {
               }),
             ],
             onChanged: (String? v) => setBoth(() => _appLanguage = v ?? ''),
+          ),
+          ListTile(
+            contentPadding: EdgeInsets.zero,
+            title: Text(l10n.customOrderSetCount),
+            subtitle: Slider(
+              value: _maxCustomOrderSets.toDouble(),
+              min: AppSettings.minCustomOrderSets.toDouble(),
+              max: AppSettings.maxCustomOrderSetsLimit.toDouble(),
+              divisions:
+                  AppSettings.maxCustomOrderSetsLimit -
+                  AppSettings.minCustomOrderSets,
+              label: _maxCustomOrderSets.toString(),
+              onChanged: (double value) =>
+                  setBoth(() => _maxCustomOrderSets = value.round()),
+            ),
+            trailing: Text(_maxCustomOrderSets.toString()),
           ),
           SwitchListTile(
             contentPadding: EdgeInsets.zero,
@@ -4277,6 +4298,10 @@ class _DiatarSettingsSheetState extends State<DiatarSettingsSheet> {
       homeShowHighlightControls: _homeShowHighlightControls,
       appThemeMode: _appThemeMode.clamp(0, 1),
       appLanguage: _appLanguage,
+      maxCustomOrderSets: _maxCustomOrderSets.clamp(
+        AppSettings.minCustomOrderSets,
+        AppSettings.maxCustomOrderSetsLimit,
+      ),
       desktopProjectorEnabled: _desktopProjectorEnabled,
       desktopProjectorMonitor: _desktopProjectorMonitor,
       desktopActionHotkeys: Map<String, String>.from(_desktopActionHotkeys),

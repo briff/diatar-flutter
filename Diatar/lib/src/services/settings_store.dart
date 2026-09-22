@@ -58,6 +58,7 @@ class SettingsStore {
   static const String _kLandscapeControlsRatio = 'LandscapeControlsRatio';
   static const String _kAppThemeMode = 'AppThemeMode';
   static const String _kAppLanguage = 'AppLanguage';
+  static const String _kMaxCustomOrderSets = 'MaxCustomOrderSets';
   static const String _kProjectionLocked = 'ProjectionLocked';
   static const String _kDesktopProjectorEnabled = 'DesktopProjectorEnabled';
   static const String _kDesktopProjectorMonitor = 'DesktopProjectorMonitor';
@@ -349,6 +350,13 @@ class SettingsStore {
       landscapeControlsRatio: prefs.getDouble(_kLandscapeControlsRatio),
       appThemeMode: prefs.getInt(_kAppThemeMode) ?? 0,
       appLanguage: prefs.getString(_kAppLanguage) ?? '',
+      maxCustomOrderSets:
+          (prefs.getInt(_kMaxCustomOrderSets) ??
+                  AppSettings.defaultMaxCustomOrderSets)
+              .clamp(
+                AppSettings.minCustomOrderSets,
+                AppSettings.maxCustomOrderSetsLimit,
+              ),
       projectionLocked: prefs.getBool(_kProjectionLocked) ?? false,
       desktopProjectorEnabled: prefs.getBool(_kDesktopProjectorEnabled) ?? true,
       desktopProjectorMonitor: prefs.getInt(_kDesktopProjectorMonitor) ?? -1,
@@ -456,6 +464,7 @@ class SettingsStore {
     }
     await prefs.setInt(_kAppThemeMode, settings.appThemeMode);
     await prefs.setString(_kAppLanguage, settings.appLanguage);
+    await prefs.setInt(_kMaxCustomOrderSets, settings.maxCustomOrderSets);
     await prefs.setBool(_kProjectionLocked, settings.projectionLocked);
     await prefs.setBool(
       _kDesktopProjectorEnabled,

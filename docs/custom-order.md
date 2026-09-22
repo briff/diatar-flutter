@@ -26,3 +26,14 @@ Az diasor összeállítása a **Diasor** ablakban érhető el.
 - **Mentés** — `.dia` fájl mentése a lemezre
 - **Betöltés** — korábban mentett `.dia` fájl megnyitása
 - Az `.dia` fájl formátum az INI fájlformátum
+
+## Betöltött diasorok száma
+
+A **Beállítások > Általános > Diasorok száma** szabályzóval 1 és 20 között
+állítható be, hány diasor lehet egyszerre betöltve. Új diasor létrehozásakor
+vagy mellé töltésekor a legrégebben szerkesztett vagy vetített diasor
+automatikusan törlődik, ha a beállított korlát már betelt. Gyorsbillentyűhöz
+rendelt diasor nem törlődik automatikusan; ha csak ilyen diasorok maradtak, a
+program figyelmeztetés mellett ideiglenesen túllépi a korlátot. Egyes korlátnál
+a betöltés kérdés nélkül felülírja az aktuális diasort, kivéve, ha ahhoz
+gyorsbillentyű tartozik.

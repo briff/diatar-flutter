@@ -510,6 +510,8 @@
     }
   },
   "uiTheme": "Felhasználói felület témája",
+  "customOrderSetCount": "Diasorok száma maximum",
+  "customOrderLimitExceededWarning": "A diasorok száma túllépte a beállított maximumot, mert minden régebbi diasorhoz gyorsbillentyű tartozik.",
   "themeDark": "Sötét",
   "themeLight": "Világos",
   "blankImagePath": "Háttérkép útvonal",

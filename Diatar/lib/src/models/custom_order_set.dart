@@ -16,6 +16,7 @@ class CustomOrderSet {
     this.sourceType,
     this.cursor = -1,
     this.isModified = false,
+    this.lastUsed = 0,
   });
 
   final String id;
@@ -25,6 +26,7 @@ class CustomOrderSet {
   final String? baseName;
   final String? sourceType;
   final bool isModified;
+  final int lastUsed;
 
   /// A diasor utoljára ismert kurzorpozíciója (a bejegyzéslistában).
   /// Diasorok közötti váltáskor ezt tároljuk el, hogy visszaváltáskor
@@ -59,6 +61,7 @@ class CustomOrderSet {
     int? cursor,
     bool clearCursor = false,
     bool? isModified,
+    int? lastUsed,
   }) {
     return CustomOrderSet(
       id: id ?? this.id,
@@ -69,6 +72,7 @@ class CustomOrderSet {
       sourceType: clearSourceType ? null : (sourceType ?? this.sourceType),
       cursor: clearCursor ? -1 : (cursor ?? this.cursor),
       isModified: isModified ?? this.isModified,
+      lastUsed: lastUsed ?? this.lastUsed,
     );
   }
 }

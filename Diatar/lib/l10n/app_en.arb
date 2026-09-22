@@ -510,6 +510,8 @@
     }
   },
   "uiTheme": "User interface theme",
+  "customOrderSetCount": "Maximum number of slideshows",
+  "customOrderLimitExceededWarning": "The number of slideshows exceeded the configured maximum because every older slideshow has a keyboard shortcut.",
   "themeDark": "Dark",
   "themeLight": "Light",
   "uiLanguage": "User interface language",

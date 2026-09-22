@@ -78,6 +78,24 @@ void main() {
     expect(reloaded.landscapeControlsRatio, 0.42);
   });
 
+  test('defaults and persists the maximum slideshow count', () async {
+    SharedPreferences.setMockInitialValues(<String, Object>{});
+    final SettingsStore store = SettingsStore();
+
+    expect((await store.load()).maxCustomOrderSets, 10);
+    await store.save((await store.load()).copyWith(maxCustomOrderSets: 17));
+
+    expect((await store.load()).maxCustomOrderSets, 17);
+  });
+
+  test('clamps an invalid stored maximum slideshow count', () async {
+    SharedPreferences.setMockInitialValues(<String, Object>{
+      'MaxCustomOrderSets': 99,
+    });
+
+    expect((await SettingsStore().load()).maxCustomOrderSets, 20);
+  });
+
   test('persists inverse notation colors round-trip', () async {
     SharedPreferences.setMockInitialValues(<String, Object>{});
     final SettingsStore store = SettingsStore();

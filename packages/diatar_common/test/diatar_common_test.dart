@@ -44,6 +44,7 @@ void main() {
 
   test('default app settings are valid', () {
     const AppSettings s = AppSettings();
+    expect(s.maxCustomOrderSets, AppSettings.defaultMaxCustomOrderSets);
     expect(s.port, 1024);
     expect(s.tcpEnabled, false);
     expect(

@@ -1,4 +1,7 @@
 Új funkciók
+Diasor
+- Beállítható az egyszerre betölthető diasorok száma; a korlát elérésekor a legrégebben használt, gyorsbillentyű nélküli diasor törlődik
+
 Zene
 - Letölthetők a zenék (Letöltés ablak, Zenék lap)
 - Zene lejátszás a diasorban, és továbbítás a vetítőre
