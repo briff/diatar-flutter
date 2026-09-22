@@ -1,14 +1,18 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:html/dom.dart' as dom;
 import 'package:html/parser.dart' as html_parser;
 import 'package:super_clipboard/super_clipboard.dart';
 
+import 'chord_editor_dialog.dart';
+import 'chord_renderer.dart';
+
 enum InlineTextStyle { bold, italic, underline, strike, tieUnderline }
 
-const String inlineCommandPlaceholder = '\u25A3';
+const String inlineCommandPlaceholder = '\uFFFC';
 
 enum InlineTextSpecialCharacter {
   conditionalHyphen,
@@ -93,6 +97,22 @@ class _InlineTextElement {
   final String? rawCommand;
 
   bool get isCommand => kind == _InlineTextElementKind.command;
+
+  String? get chordSource {
+    final String? command = rawCommand;
+    if (command == null || !command.endsWith(';')) {
+      return null;
+    }
+    if (command.startsWith(r'\G')) {
+      return command.substring(2, command.length - 1);
+    }
+    if (command.startsWith(r'\?G')) {
+      return command.substring(3, command.length - 1);
+    }
+    return null;
+  }
+
+  String get clipboardText => chordSource ?? rawCommand ?? visibleCharacter;
 
   String get editorCharacter => switch (kind) {
     _InlineTextElementKind.softHyphen =>
@@ -238,6 +258,9 @@ class InlineTextDocument {
   String get visibleText =>
       _elements.map((element) => element.visibleCharacter).join();
 
+  String get plainText =>
+      _elements.map((element) => element.clipboardText).join();
+
   Set<InlineTextStyle> stylesForInsertionAt(int offset) {
     if (_elements.isEmpty) {
       return <InlineTextStyle>{};
@@ -342,6 +365,18 @@ class InlineTextDocument {
   }
 }
 
+class InlineChordCommand {
+  const InlineChordCommand({
+    required this.offset,
+    required this.source,
+    required this.chord,
+  });
+
+  final int offset;
+  final String source;
+  final DiatarChord? chord;
+}
+
 void _writeStyleTransition(
   StringBuffer result,
   Set<InlineTextStyle> activeStyles,
@@ -392,14 +427,14 @@ class InlineTextClipboard {
   static Future<void> copy(InlineTextDocument document) async {
     final SystemClipboard? clipboard = SystemClipboard.instance;
     if (clipboard == null) {
-      await Clipboard.setData(ClipboardData(text: document.visibleText));
+      await Clipboard.setData(ClipboardData(text: document.plainText));
       return;
     }
     final DataWriterItem item = DataWriterItem()
       ..add(_diaFormat(document.encode()))
       ..add(Formats.htmlText(toHtml(document)))
       ..add(_rtfFormat(toRtf(document)))
-      ..add(Formats.plainText(document.visibleText));
+      ..add(Formats.plainText(document.plainText));
     await clipboard.write(<DataWriterItem>[item]);
   }
 
@@ -450,7 +485,7 @@ class InlineTextClipboard {
     final StringBuffer result = StringBuffer('<span data-diatar-inline="1">');
     for (final _InlineTextElement element in document._elements) {
       final String text = element.isCommand
-          ? element.rawCommand!
+          ? element.clipboardText
           : element.visibleCharacter;
       final String content = _escapeHtml(text);
       if (element.isCommand) {
@@ -486,7 +521,7 @@ class InlineTextClipboard {
     for (final _InlineTextElement element in document._elements) {
       _writeRtfStyleTransition(result, active, element.styles);
       if (element.isCommand) {
-        _writeRtfText(result, element.rawCommand!);
+        _writeRtfText(result, element.clipboardText);
       } else if (element.kind == _InlineTextElementKind.preferredLineBreak) {
         result.write(r'\line ');
       } else {
@@ -841,6 +876,67 @@ class InlineTextEditingController extends TextEditingController {
   InlineTextDocument get selectedDocument =>
       _document.copyRange(selection.start, selection.end);
 
+  InlineChordCommand? chordAtOffset(int offset) {
+    if (offset < 0 || offset >= _document._elements.length) {
+      return null;
+    }
+    final String? source = _document._elements[offset].chordSource;
+    return source == null
+        ? null
+        : InlineChordCommand(
+            offset: offset,
+            source: source,
+            chord: DiatarChord.tryParse(source),
+          );
+  }
+
+  InlineChordCommand? get selectedChord {
+    final TextSelection current = selection;
+    if (!current.isValid || current.isCollapsed) {
+      return null;
+    }
+    final int start = current.start;
+    return current.end - start == 1 ? chordAtOffset(start) : null;
+  }
+
+  void insertChord(String source) {
+    if (DiatarChord.tryParse(source) == null) {
+      throw ArgumentError.value(source, 'source', 'Invalid Diatár chord');
+    }
+    final TextSelection current = selection.isValid
+        ? selection
+        : TextSelection.collapsed(offset: _document._elements.length);
+    final int start = current.start;
+    final Set<InlineTextStyle> styles = _document.stylesForInsertionAt(start);
+    _document._elements.replaceRange(start, current.end, <_InlineTextElement>[
+      _InlineTextElement(
+        kind: _InlineTextElementKind.command,
+        styles: Set<InlineTextStyle>.unmodifiable(styles),
+        visibleCharacter: inlineCommandPlaceholder,
+        rawCommand: '\\G$source;',
+      ),
+    ]);
+    _setDocumentValue(TextSelection.collapsed(offset: start + 1));
+  }
+
+  void replaceChordAt(int offset, String source) {
+    if (DiatarChord.tryParse(source) == null) {
+      throw ArgumentError.value(source, 'source', 'Invalid Diatár chord');
+    }
+    final InlineChordCommand? existing = chordAtOffset(offset);
+    if (existing == null) {
+      return;
+    }
+    final _InlineTextElement oldElement = _document._elements[offset];
+    _document._elements[offset] = _InlineTextElement(
+      kind: _InlineTextElementKind.command,
+      styles: oldElement.styles,
+      visibleCharacter: inlineCommandPlaceholder,
+      rawCommand: '\\G$source;',
+    );
+    _setDocumentValue(TextSelection.collapsed(offset: offset + 1));
+  }
+
   bool isStyleActiveForSelection(InlineTextStyle style) {
     final TextSelection currentSelection = selection;
     if (!currentSelection.isValid) {
@@ -1045,6 +1141,31 @@ class InlineTextEditingController extends TextEditingController {
       }
       runStyles = element.styles;
       hasRunStyles = true;
+      final String? chordSource = element.chordSource;
+      if (chordSource != null) {
+        flushText();
+        final bool valid = DiatarChord.tryParse(chordSource) != null;
+        final ColorScheme colors = Theme.of(context).colorScheme;
+        spans.add(
+          WidgetSpan(
+            alignment: PlaceholderAlignment.middle,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 1),
+              child: ChordDisplay(
+                source: chordSource,
+                style: baseStyle.copyWith(
+                  color: valid ? baseStyle.color : colors.error,
+                ),
+                borderColor: valid ? colors.outline : colors.error,
+                backgroundColor: valid
+                    ? colors.surfaceContainerLowest
+                    : colors.errorContainer,
+              ),
+            ),
+          ),
+        );
+        continue;
+      }
       textBuffer.write(element.editorCharacter);
     }
     flushText();
@@ -1064,6 +1185,8 @@ class InlineTextEditorLabels {
     required this.nonBreakingSpace,
     required this.nonBreakingHyphen,
     required this.preferredLineBreak,
+    required this.insertChord,
+    required this.editChord,
   });
 
   final String bold;
@@ -1075,6 +1198,8 @@ class InlineTextEditorLabels {
   final String nonBreakingSpace;
   final String nonBreakingHyphen;
   final String preferredLineBreak;
+  final String insertChord;
+  final String editChord;
 
   String specialCharacterLabel(InlineTextSpecialCharacter character) {
     return switch (character) {
@@ -1096,6 +1221,7 @@ class InlineTextEditor extends StatefulWidget {
     required this.controller,
     required this.labels,
     required this.decoration,
+    required this.chordEditorLabels,
     this.focusNode,
     this.minLines,
     this.maxLines,
@@ -1104,6 +1230,7 @@ class InlineTextEditor extends StatefulWidget {
   final InlineTextEditingController controller;
   final InlineTextEditorLabels labels;
   final InputDecoration decoration;
+  final ChordEditorLabels chordEditorLabels;
   final FocusNode? focusNode;
   final int? minLines;
   final int? maxLines;
@@ -1115,6 +1242,10 @@ class InlineTextEditor extends StatefulWidget {
 class _InlineTextEditorState extends State<InlineTextEditor> {
   late final FocusNode _focusNode;
   late final bool _ownsFocusNode;
+  final GlobalKey _textFieldKey = GlobalKey();
+  DateTime? _lastPointerDownAt;
+  Offset? _lastPointerDownPosition;
+  bool _editingChord = false;
 
   @override
   void initState() {
@@ -1135,6 +1266,11 @@ class _InlineTextEditorState extends State<InlineTextEditor> {
     if (event is! KeyDownEvent) {
       return KeyEventResult.ignored;
     }
+    if (event.logicalKey == LogicalKeyboardKey.f2 &&
+        widget.controller.selectedChord != null) {
+      unawaited(_editChord(widget.controller.selectedChord!));
+      return KeyEventResult.handled;
+    }
     final bool shortcut =
         HardwareKeyboard.instance.isControlPressed ||
         HardwareKeyboard.instance.isMetaPressed;
@@ -1154,6 +1290,104 @@ class _InlineTextEditorState extends State<InlineTextEditor> {
       return KeyEventResult.handled;
     }
     return KeyEventResult.ignored;
+  }
+
+  void _handlePointerDown(PointerDownEvent event) {
+    final DateTime now = DateTime.now();
+    final bool isDoubleClick =
+        _lastPointerDownAt != null &&
+        now.difference(_lastPointerDownAt!) <=
+            const Duration(milliseconds: 500) &&
+        _lastPointerDownPosition != null &&
+        (event.position - _lastPointerDownPosition!).distance <= 20;
+    _lastPointerDownAt = now;
+    _lastPointerDownPosition = event.position;
+    if (!isDoubleClick) {
+      return;
+    }
+    _lastPointerDownAt = null;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        unawaited(_editChordAtPosition(event.position));
+      }
+    });
+  }
+
+  RenderEditable? _findRenderEditable() {
+    final RenderObject? root = _textFieldKey.currentContext?.findRenderObject();
+    if (root == null) {
+      return null;
+    }
+    RenderEditable? result;
+    void visit(RenderObject child) {
+      if (result != null) {
+        return;
+      }
+      if (child is RenderEditable) {
+        result = child;
+        return;
+      }
+      child.visitChildren(visit);
+    }
+
+    if (root is RenderEditable) {
+      return root;
+    }
+    root.visitChildren(visit);
+    return result;
+  }
+
+  Future<void> _editChordAtPosition(Offset globalPosition) async {
+    final RenderEditable? editable = _findRenderEditable();
+    if (editable == null) {
+      return;
+    }
+    final int offset = editable.getPositionForPoint(globalPosition).offset;
+    final InlineChordCommand? chord =
+        widget.controller.chordAtOffset(offset) ??
+        widget.controller.chordAtOffset(offset - 1);
+    if (chord != null) {
+      await _editChord(chord);
+    }
+  }
+
+  Future<void> _insertChord() async {
+    if (_editingChord) {
+      return;
+    }
+    _editingChord = true;
+    try {
+      final String? source = await showChordEditorDialog(
+        context: context,
+        labels: widget.chordEditorLabels,
+      );
+      if (source != null && mounted) {
+        widget.controller.insertChord(source);
+        _focusNode.requestFocus();
+      }
+    } finally {
+      _editingChord = false;
+    }
+  }
+
+  Future<void> _editChord(InlineChordCommand chord) async {
+    if (_editingChord) {
+      return;
+    }
+    _editingChord = true;
+    try {
+      final String? source = await showChordEditorDialog(
+        context: context,
+        labels: widget.chordEditorLabels,
+        initialSource: chord.source,
+      );
+      if (source != null && mounted) {
+        widget.controller.replaceChordAt(chord.offset, source);
+        _focusNode.requestFocus();
+      }
+    } finally {
+      _editingChord = false;
+    }
   }
 
   Future<void> _copy() async {
@@ -1191,34 +1425,45 @@ class _InlineTextEditorState extends State<InlineTextEditor> {
   List<ContextMenuButtonItem> _contextMenuItems(
     EditableTextState editableTextState,
   ) {
-    return editableTextState.contextMenuButtonItems.map((
-      ContextMenuButtonItem item,
-    ) {
-      return switch (item.type) {
-        ContextMenuButtonType.copy => ContextMenuButtonItem(
-          type: item.type,
+    final InlineChordCommand? selectedChord = widget.controller.selectedChord;
+    return <ContextMenuButtonItem>[
+      if (selectedChord != null)
+        ContextMenuButtonItem(
+          label: widget.labels.editChord,
           onPressed: () {
-            unawaited(_copy());
             ContextMenuController.removeAny();
+            unawaited(_editChord(selectedChord));
           },
         ),
-        ContextMenuButtonType.cut => ContextMenuButtonItem(
-          type: item.type,
-          onPressed: () {
-            unawaited(_cut());
-            ContextMenuController.removeAny();
-          },
-        ),
-        ContextMenuButtonType.paste => ContextMenuButtonItem(
-          type: item.type,
-          onPressed: () {
-            unawaited(_paste());
-            ContextMenuController.removeAny();
-          },
-        ),
-        _ => item,
-      };
-    }).toList();
+      ...editableTextState.contextMenuButtonItems.map((
+        ContextMenuButtonItem item,
+      ) {
+        return switch (item.type) {
+          ContextMenuButtonType.copy => ContextMenuButtonItem(
+            type: item.type,
+            onPressed: () {
+              unawaited(_copy());
+              ContextMenuController.removeAny();
+            },
+          ),
+          ContextMenuButtonType.cut => ContextMenuButtonItem(
+            type: item.type,
+            onPressed: () {
+              unawaited(_cut());
+              ContextMenuController.removeAny();
+            },
+          ),
+          ContextMenuButtonType.paste => ContextMenuButtonItem(
+            type: item.type,
+            onPressed: () {
+              unawaited(_paste());
+              ContextMenuController.removeAny();
+            },
+          ),
+          _ => item,
+        };
+      }),
+    ];
   }
 
   @override
@@ -1295,21 +1540,39 @@ class _InlineTextEditorState extends State<InlineTextEditor> {
                   foregroundColor: colors.onSurfaceVariant,
                 ),
               ),
+              IconButton(
+                tooltip: widget.labels.insertChord,
+                onPressed: () {
+                  final InlineChordCommand? chord =
+                      widget.controller.selectedChord;
+                  unawaited(chord == null ? _insertChord() : _editChord(chord));
+                },
+                icon: const Icon(Icons.queue_music),
+                style: IconButton.styleFrom(
+                  backgroundColor: colors.surfaceContainerHighest,
+                  foregroundColor: colors.onSurfaceVariant,
+                ),
+              ),
             ],
           ),
         ),
-        TextField(
-          controller: widget.controller,
-          focusNode: _focusNode,
-          decoration: widget.decoration,
-          minLines: widget.minLines,
-          maxLines: widget.maxLines,
-          contextMenuBuilder: (BuildContext context, EditableTextState state) {
-            return AdaptiveTextSelectionToolbar.buttonItems(
-              anchors: state.contextMenuAnchors,
-              buttonItems: _contextMenuItems(state),
-            );
-          },
+        Listener(
+          onPointerDown: _handlePointerDown,
+          child: TextField(
+            key: _textFieldKey,
+            controller: widget.controller,
+            focusNode: _focusNode,
+            decoration: widget.decoration,
+            minLines: widget.minLines,
+            maxLines: widget.maxLines,
+            contextMenuBuilder:
+                (BuildContext context, EditableTextState state) {
+                  return AdaptiveTextSelectionToolbar.buttonItems(
+                    anchors: state.contextMenuAnchors,
+                    buttonItems: _contextMenuItems(state),
+                  );
+                },
+          ),
         ),
       ],
     );

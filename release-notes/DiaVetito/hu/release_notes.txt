@@ -1,1 +1,2 @@
-Bugfixes
+Hibajavítások
+- A vetítő felismeri és helyesen jeleníti meg a 2/7 akkordot

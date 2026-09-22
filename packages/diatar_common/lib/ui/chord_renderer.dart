@@ -117,6 +117,20 @@ class DiatarChord {
   final String? bass;
   final String? bassAccidental;
 
+  static List<String> get supportedModifiers =>
+      List<String>.unmodifiable(_inputModifiers);
+
+  String get rootCode => '$root${accidental ?? ''}';
+
+  String get modifierCode => _inputModifiers[modifier];
+
+  String? get bassCode => bass == null ? null : '$bass${bassAccidental ?? ''}';
+
+  static bool supportsModifier(String modifier, {required bool minor}) {
+    final int index = _inputModifiers.indexOf(modifier);
+    return index >= 0 && (!minor || _minorModifiers.contains(index));
+  }
+
   String get source {
     final StringBuffer result = StringBuffer()
       ..write(root)
@@ -340,6 +354,98 @@ class DiatarChord {
     }
     final int transposed = (pitch + semitones) % 12;
     return (useFlats ? flats : sharps)[transposed];
+  }
+}
+
+class ChordDisplay extends StatelessWidget {
+  const ChordDisplay({
+    super.key,
+    required this.source,
+    required this.style,
+    this.borderColor,
+    this.backgroundColor = Colors.transparent,
+    this.padding = const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+    this.borderRadius = 3,
+  });
+
+  final String source;
+  final TextStyle style;
+  final Color? borderColor;
+  final Color backgroundColor;
+  final EdgeInsets padding;
+  final double borderRadius;
+
+  @override
+  Widget build(BuildContext context) {
+    final TextStyle effectiveStyle = DefaultTextStyle.of(
+      context,
+    ).style.merge(style);
+    final ChordLayout layout = ChordRenderer.layout(source, effectiveStyle);
+    final Size size = Size(
+      layout.width + padding.horizontal,
+      layout.height + padding.vertical,
+    );
+    final Color effectiveBorderColor =
+        borderColor ??
+        effectiveStyle.color ??
+        Theme.of(context).colorScheme.outline;
+    return Semantics(
+      label: source,
+      child: CustomPaint(
+        size: size,
+        painter: _ChordDisplayPainter(
+          layout: layout,
+          padding: padding,
+          borderColor: effectiveBorderColor,
+          backgroundColor: backgroundColor,
+          borderRadius: borderRadius,
+        ),
+      ),
+    );
+  }
+}
+
+class _ChordDisplayPainter extends CustomPainter {
+  const _ChordDisplayPainter({
+    required this.layout,
+    required this.padding,
+    required this.borderColor,
+    required this.backgroundColor,
+    required this.borderRadius,
+  });
+
+  final ChordLayout layout;
+  final EdgeInsets padding;
+  final Color borderColor;
+  final Color backgroundColor;
+  final double borderRadius;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final RRect frame = RRect.fromRectAndRadius(
+      Offset.zero & size,
+      Radius.circular(borderRadius),
+    );
+    if (backgroundColor.a > 0) {
+      canvas.drawRRect(frame, Paint()..color = backgroundColor);
+    }
+    canvas.drawRRect(
+      frame,
+      Paint()
+        ..color = borderColor
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 1,
+    );
+    layout.paint(canvas, Offset(padding.left, padding.top));
+  }
+
+  @override
+  bool shouldRepaint(_ChordDisplayPainter oldDelegate) {
+    return oldDelegate.layout != layout ||
+        oldDelegate.padding != padding ||
+        oldDelegate.borderColor != borderColor ||
+        oldDelegate.backgroundColor != backgroundColor ||
+        oldDelegate.borderRadius != borderRadius;
   }
 }
 

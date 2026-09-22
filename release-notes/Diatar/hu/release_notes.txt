@@ -2,6 +2,8 @@
 Diasor
 - Asztali rendszereken automatikusan menthetők a módosított diasorok a szerkesztő bezárásakor vagy a programból kilépéskor
 - Beállítható az egyszerre betölthető diasorok száma; a korlát elérésekor a legrégebben használt, gyorsbillentyű nélküli diasor törlődik
+- A szöveges diákban keretes akkordok szúrhatók be, másolhatók és külön ablakban szerkeszthetők
+- Az akkordok transzponálása kezeli a Diatár hangneveit, módosítóit és a basszushangot
 
 Zene
 - Letölthetők a zenék (Letöltés ablak, Zenék lap)

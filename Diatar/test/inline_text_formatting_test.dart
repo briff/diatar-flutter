@@ -1,6 +1,35 @@
 import 'package:diatar_common/diatar_common.dart';
-import 'package:flutter/services.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+
+const InlineTextEditorLabels _editorLabels = InlineTextEditorLabels(
+  bold: 'Bold',
+  italic: 'Italic',
+  underline: 'Underline',
+  strikethrough: 'Strike',
+  insertSpecialCharacter: 'Insert special',
+  conditionalHyphen: 'Conditional hyphen',
+  nonBreakingSpace: 'Non-breaking space',
+  nonBreakingHyphen: 'Non-breaking hyphen',
+  preferredLineBreak: 'Preferred break',
+  insertChord: 'Insert chord',
+  editChord: 'Edit chord',
+);
+
+const ChordEditorLabels _chordLabels = ChordEditorLabels(
+  insertTitle: 'Insert chord',
+  editTitle: 'Edit chord',
+  rootNote: 'Root note',
+  quality: 'Quality',
+  major: 'Major',
+  minor: 'Minor',
+  modifier: 'Chord type',
+  bassNote: 'Bass note',
+  none: 'None',
+  preview: 'Preview',
+  cancel: 'Cancel',
+  apply: 'Apply',
+);
 
 void main() {
   test('removes empty and repeated inline style markers', () {
@@ -115,6 +144,69 @@ void main() {
     controller.dispose();
   });
 
+  test('exposes an embedded chord as one editable object', () {
+    final InlineTextEditingController controller =
+        InlineTextEditingController.fromDia(r'a\GAm7/G;b');
+
+    final InlineChordCommand chord = controller.chordAtOffset(1)!;
+    expect(chord.source, 'Am7/G');
+    expect(chord.chord, isNotNull);
+    expect(controller.text, 'a${inlineCommandPlaceholder}b');
+
+    controller.selection = const TextSelection(baseOffset: 1, extentOffset: 2);
+    expect(controller.selectedChord?.source, 'Am7/G');
+    controller.dispose();
+  });
+
+  test('inserts and replaces chords without exposing their markup', () {
+    final InlineTextEditingController controller =
+        InlineTextEditingController.fromDia('word');
+    controller.selection = const TextSelection.collapsed(offset: 0);
+
+    controller.insertChord('C27/G');
+    expect(
+      controller.text,
+      '$inlineCommandPlaceholder'
+      'word',
+    );
+    expect(controller.encodedText, r'\GC27/G;word');
+
+    controller.replaceChordAt(0, 'H-7+');
+    expect(
+      controller.text,
+      '$inlineCommandPlaceholder'
+      'word',
+    );
+    expect(controller.encodedText, r'\GH-7+;word');
+    controller.dispose();
+  });
+
+  test('uses readable chord names in external clipboard representations', () {
+    final InlineTextDocument document = InlineTextDocument.decode(
+      r'Before \GAm7/G; after',
+    );
+
+    expect(document.plainText, 'Before Am7/G after');
+    expect(InlineTextClipboard.toRtf(document), contains('Am7/G'));
+    expect(InlineTextClipboard.toHtml(document), contains('>Am7/G</span>'));
+  });
+
+  test('pastes a copied chord as one atomic object', () {
+    final InlineTextDocument copied = InlineTextDocument.decode(
+      r'\GAm7/G;',
+    ).copyRange(0, 1);
+    final InlineTextEditingController target =
+        InlineTextEditingController.fromDia('word');
+    target.selection = const TextSelection.collapsed(offset: 2);
+
+    target.replaceSelectionWithDocument(copied);
+
+    expect(target.text, 'wo${inlineCommandPlaceholder}rd');
+    expect(target.encodedText, r'wo\GAm7/G;rd');
+    expect(target.chordAtOffset(2)?.source, 'Am7/G');
+    target.dispose();
+  });
+
   test('escapes typed backslashes instead of creating DIA commands', () {
     final InlineTextEditingController controller =
         InlineTextEditingController.fromDia('');
@@ -224,5 +316,64 @@ void main() {
       InlineTextClipboard.fromRtf(InlineTextClipboard.toRtf(document)).encode(),
       document.encode(),
     );
+  });
+
+  testWidgets('chord toolbar inserts an atomic chord', (
+    WidgetTester tester,
+  ) async {
+    final InlineTextEditingController controller =
+        InlineTextEditingController.fromDia('');
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: InlineTextEditor(
+            controller: controller,
+            labels: _editorLabels,
+            chordEditorLabels: _chordLabels,
+            decoration: const InputDecoration(),
+          ),
+        ),
+      ),
+    );
+
+    await tester.tap(find.byTooltip('Insert chord'));
+    await tester.pumpAndSettle();
+    expect(find.text('Insert chord'), findsOneWidget);
+
+    await tester.tap(find.text('Apply'));
+    await tester.pumpAndSettle();
+    expect(controller.encodedText, r'\GC;');
+    expect(find.byType(ChordDisplay), findsOneWidget);
+    controller.dispose();
+  });
+
+  testWidgets('double-clicking a framed chord opens it for editing', (
+    WidgetTester tester,
+  ) async {
+    final InlineTextEditingController controller =
+        InlineTextEditingController.fromDia(r'\GAm7;word');
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: InlineTextEditor(
+            controller: controller,
+            labels: _editorLabels,
+            chordEditorLabels: _chordLabels,
+            decoration: const InputDecoration(),
+          ),
+        ),
+      ),
+    );
+
+    final Finder chord = find.byType(ChordDisplay);
+    expect(chord, findsOneWidget);
+    await tester.tap(chord);
+    await tester.pump(const Duration(milliseconds: 50));
+    await tester.tap(chord);
+    await tester.pumpAndSettle();
+
+    expect(find.text('Edit chord'), findsOneWidget);
+    expect(controller.chordAtOffset(0)?.source, 'Am7');
+    controller.dispose();
   });
 }

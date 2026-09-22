@@ -21,6 +21,14 @@ Az diasor összeállítása a **Diasor** ablakban érhető el.
 - **Törlés** — a diasor eltávolítása
 - **Kapcsolás** — a diasor be-/kapcsolása (a kikapcsolt nem jelenik meg a nézetekben)
 
+### Akkordok a szöveges diákban
+
+A szöveges dia szerkesztőjének akkord gombjával külön ablakban választható ki
+az alaphang, a dúr vagy moll jelleg, a hangzat és az opcionális basszushang. Az
+akkord a szövegben vékony keretben, egyetlen elemként jelenik meg: egyben
+kijelölhető, kivágható, másolható, beilleszthető és törölhető. Dupla kattintással
+ismét megnyitható az akkordszerkesztő ablak.
+
 ## Export/Import
 
 - **Mentés** — `.dia` fájl mentése a lemezre

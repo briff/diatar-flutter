@@ -15,6 +15,7 @@ export 'services/aretino/aretino_render_service.dart';
 export 'services/aretino/aretino_source.dart';
 export 'services/aretino/aretino_svg.dart';
 export 'ui/kotta_assets.dart';
+export 'ui/chord_editor_dialog.dart';
 export 'ui/chord_renderer.dart';
 export 'ui/inline_text_editor.dart';
 export 'ui/projector_painter.dart';
