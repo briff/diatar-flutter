@@ -53,6 +53,7 @@ class DiatarChord {
     '4',
     '2',
     '47',
+    '27',
     '49',
     '49-',
     '49+',
@@ -91,6 +92,7 @@ class DiatarChord {
     '4',
     '2',
     '4/7',
+    '2/7',
     '4/9',
     '4/9-',
     '4/9+',
@@ -114,6 +116,46 @@ class DiatarChord {
   final int modifier;
   final String? bass;
   final String? bassAccidental;
+
+  String get source {
+    final StringBuffer result = StringBuffer()
+      ..write(root)
+      ..write(accidental ?? '');
+    if (isMinor) {
+      result.write('m');
+    }
+    result.write(_inputModifiers[modifier]);
+    if (bass != null) {
+      result
+        ..write('/')
+        ..write(bass)
+        ..write(bassAccidental ?? '');
+    }
+    return result.toString();
+  }
+
+  String transpose(int semitones) {
+    final bool useFlats = accidental == '-';
+    final String transposedRoot = _transposeNote(
+      root,
+      accidental,
+      semitones,
+      useFlats: useFlats,
+    );
+    final StringBuffer result = StringBuffer(transposedRoot);
+    if (isMinor) {
+      result.write('m');
+    }
+    result.write(_inputModifiers[modifier]);
+    if (bass != null) {
+      result
+        ..write('/')
+        ..write(
+          _transposeNote(bass!, bassAccidental, semitones, useFlats: useFlats),
+        );
+    }
+    return result.toString();
+  }
 
   static DiatarChord? tryParse(String source) {
     if (source.isEmpty) {
@@ -244,6 +286,60 @@ class DiatarChord {
       return letter == 'E' || letter == 'A' ? 's' : 'es';
     }
     return '';
+  }
+
+  static String _transposeNote(
+    String letter,
+    String? accidental,
+    int semitones, {
+    required bool useFlats,
+  }) {
+    const Map<String, int> naturalSemitones = <String, int>{
+      'C': 0,
+      'D': 2,
+      'E': 4,
+      'F': 5,
+      'G': 7,
+      'A': 9,
+      'H': 11,
+    };
+    const List<String> sharps = <String>[
+      'C',
+      'C+',
+      'D',
+      'D+',
+      'E',
+      'F',
+      'F+',
+      'G',
+      'G+',
+      'A',
+      'A+',
+      'H',
+    ];
+    const List<String> flats = <String>[
+      'C',
+      'D-',
+      'D',
+      'E-',
+      'E',
+      'F',
+      'G-',
+      'G',
+      'A-',
+      'A',
+      'H-',
+      'H',
+    ];
+
+    int pitch = naturalSemitones[letter]!;
+    if (accidental == '+') {
+      pitch++;
+    } else if (accidental == '-') {
+      pitch--;
+    }
+    final int transposed = (pitch + semitones) % 12;
+    return (useFlats ? flats : sharps)[transposed];
   }
 }
 

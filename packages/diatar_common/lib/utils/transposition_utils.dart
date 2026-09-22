@@ -1,16 +1,44 @@
+import '../ui/chord_renderer.dart';
 
 class TranspositionUtils {
   static const List<String> _chromaticScale = [
-    'C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'
+    'C',
+    'C#',
+    'D',
+    'D#',
+    'E',
+    'F',
+    'F#',
+    'G',
+    'G#',
+    'A',
+    'A#',
+    'B',
   ];
 
   static const List<String> _flatsScale = [
-    'C', 'Db', 'D', 'Eb', 'E', 'F', 'Gb', 'G', 'Ab', 'A', 'Bb', 'B'
+    'C',
+    'Db',
+    'D',
+    'Eb',
+    'E',
+    'F',
+    'Gb',
+    'G',
+    'Ab',
+    'A',
+    'Bb',
+    'B',
   ];
 
   /// Transposes a chord string by the given number of semitones.
   static String transposeChord(String chord, int semitones) {
     if (semitones == 0 || chord.trim().isEmpty) return chord;
+
+    final DiatarChord? diatarChord = DiatarChord.tryParse(chord);
+    if (diatarChord != null) {
+      return diatarChord.transpose(semitones);
+    }
 
     final rootRegex = RegExp(r'^([A-G][#b]?)(.*)');
     final match = rootRegex.firstMatch(chord);
@@ -28,7 +56,9 @@ class TranspositionUtils {
 
     // Use flats if the original root used a flat, otherwise use sharps.
     final bool useFlats = root.contains('b');
-    final String newRoot = useFlats ? _flatsScale[newIdx] : _chromaticScale[newIdx];
+    final String newRoot = useFlats
+        ? _flatsScale[newIdx]
+        : _chromaticScale[newIdx];
 
     return '$newRoot$quality';
   }
@@ -54,11 +84,28 @@ class TranspositionUtils {
 
     // Diatar note letters mapped to semitone offsets from C (within one octave).
     final Map<String, int> noteToSemi = {
-      'g': 0, 'a': 2, 'h': 4, 'c': 5, 'd': 7, 'e': 9, 'f': 10,
+      'g': 0,
+      'a': 2,
+      'h': 4,
+      'c': 5,
+      'd': 7,
+      'e': 9,
+      'f': 10,
     };
     // Semitone offset -> natural Diatar note letter.
     final List<String> semiToNote = [
-      'g', 'g', 'a', 'a', 'h', 'c', 'c', 'd', 'd', 'e', 'f', 'f'
+      'g',
+      'g',
+      'a',
+      'a',
+      'h',
+      'c',
+      'c',
+      'd',
+      'd',
+      'e',
+      'f',
+      'f',
     ];
 
     // Track the current key signature (number of sharps/flats) so we can decide

@@ -3,6 +3,7 @@ import 'dart:typed_data';
 import 'dart:ui' as ui;
 
 import 'package:diatar_common/diatar_common.dart';
+import 'package:diatar_common/utils/transposition_utils.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -40,6 +41,140 @@ void main() {
       <String>['F', 'is'],
     );
     expect(DiatarChord.tryParse('Cm#'), isNull);
+  });
+
+  test('Diatar chords support every documented modifier', () {
+    const Map<String, String> modifiers = <String, String>{
+      '': '',
+      '#': '+',
+      'o': 'o',
+      '7': '7',
+      '7+': '7+',
+      'o7': 'o/7',
+      'o7-': 'o/7-',
+      'o7+': 'o/7+',
+      '#7': '+/7',
+      '#7+': '+/7+',
+      '6': '6',
+      '79': '7/9',
+      '79-': '7/9-',
+      '79+': '7/9+',
+      '#79': '+/7/9',
+      '#79+': '+/7/9+',
+      '7+9': '7+/9',
+      '7+9+': '7+/9+',
+      '#7+9': '+/7+/9',
+      '#7+9+': '+/7+/9+',
+      'o79': 'o/7/9',
+      'o79-': 'o/7/9-',
+      '9': '9',
+      '9-': '9-',
+      '9+': '9+',
+      '#9': '+/9',
+      '#9+': '+/9+',
+      'o9': 'o/9',
+      'o9-': 'o/9-',
+      '4': '4',
+      '2': '2',
+      '47': '4/7',
+      '27': '2/7',
+      '49': '4/9',
+      '49-': '4/9-',
+      '49+': '4/9+',
+    };
+
+    for (final MapEntry<String, String> modifier in modifiers.entries) {
+      final DiatarChord? chord = DiatarChord.tryParse('C${modifier.key}');
+      expect(chord, isNotNull, reason: 'C${modifier.key}');
+      expect(
+        chord!.parts.map((ChordPart part) => part.text).join(),
+        'C${modifier.value}',
+        reason: 'C${modifier.key}',
+      );
+    }
+  });
+
+  test('Diatar chords accept only the documented minor combinations', () {
+    const Set<String> accepted = <String>{
+      '',
+      '7',
+      '7+',
+      '6',
+      '79',
+      '79-',
+      '7+9',
+      '9',
+      '9-',
+    };
+    const List<String> modifiers = <String>[
+      '',
+      '#',
+      'o',
+      '7',
+      '7+',
+      'o7',
+      'o7-',
+      'o7+',
+      '#7',
+      '#7+',
+      '6',
+      '79',
+      '79-',
+      '79+',
+      '#79',
+      '#79+',
+      '7+9',
+      '7+9+',
+      '#7+9',
+      '#7+9+',
+      'o79',
+      'o79-',
+      '9',
+      '9-',
+      '9+',
+      '#9',
+      '#9+',
+      'o9',
+      'o9-',
+      '4',
+      '2',
+      '47',
+      '27',
+      '49',
+      '49-',
+      '49+',
+    ];
+
+    for (final String modifier in modifiers) {
+      expect(
+        DiatarChord.tryParse('Cm$modifier'),
+        accepted.contains(modifier) ? isNotNull : isNull,
+        reason: 'Cm$modifier',
+      );
+    }
+  });
+
+  test('Diatar chord transposition handles compact accidentals and bass', () {
+    expect(TranspositionUtils.transposeChord('C+', 1), 'D');
+    expect(TranspositionUtils.transposeChord('H7', 1), 'C7');
+    expect(TranspositionUtils.transposeChord('H-7', 2), 'C7');
+    expect(TranspositionUtils.transposeChord('Cm7/G', 2), 'Dm7/A');
+    expect(TranspositionUtils.transposeChord('C7/H', -1), 'H7/A+');
+    expect(TranspositionUtils.transposeChord('C27/G', 2), 'D27/A');
+  });
+
+  test('Diatar chord transposition preserves modifiers and flat spelling', () {
+    expect(TranspositionUtils.transposeChord('C#', 2), 'D#');
+    expect(TranspositionUtils.transposeChord('E-7+/H-', 2), 'F7+/C');
+    expect(TranspositionUtils.transposeChord('Dbmaj7', 2), 'Ebmaj7');
+    expect(TranspositionUtils.transposeChord('not a chord', 3), 'not a chord');
+  });
+
+  test('line transposition updates Diatar chord roots and bass notes', () {
+    expect(
+      TranspositionUtils.transposeLine(r'\GC+7/H-;Szoveg', 1),
+      r'\GD7/H;Szoveg',
+    );
   });
 
   test('default app settings are valid', () {
