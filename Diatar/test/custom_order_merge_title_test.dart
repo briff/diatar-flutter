@@ -363,6 +363,10 @@ void main() {
         expect(controller.customOrderSets.first.name, 'Új név');
         expect(controller.customOrderSets.first.baseName, 'Új név');
         expect(controller.customOrderSets.first.displayName, 'Új név');
+        expect(
+          controller.customOrderSets.first.diaFilePath,
+          'C:/Temp/Új név.dia',
+        );
         expect(controller.customOrderSets.first.isModified, isFalse);
         expect(controller.suggestedCustomOrderBaseName, 'Új név');
       },
@@ -492,6 +496,88 @@ void main() {
       await controller.exportCustomOrderToDia(path);
       expect(controller.customOrderSets.single.isModified, isFalse);
     });
+
+    test(
+      'exports a modified inactive set without changing the active set',
+      () async {
+        final DiatarMainController controller = DiatarMainController();
+        final Directory directory = await Directory.systemTemp.createTemp(
+          'diatar_inactive_order_export_test_',
+        );
+        final String initialPath =
+            '${directory.path}${Platform.pathSeparator}first-initial.dia';
+        final String autoSavePath =
+            '${directory.path}${Platform.pathSeparator}first-autosave.dia';
+        addTearDown(() => directory.delete(recursive: true));
+
+        await controller.createCustomOrderSet('First');
+        await controller.applyCustomOrder(const <CustomOrderEntry>[
+          CustomOrderEntry(
+            fileName: '__custom_text__',
+            songIndex: -1,
+            verseIndex: 0,
+            label: '[Text] First',
+            customTextTitle: 'First',
+            customTextBody: 'Initial text',
+            customType: 'text',
+          ),
+        ], activate: true);
+        final String firstId = controller.activeCustomOrderSetId!;
+        await controller.exportCustomOrderToDia(initialPath);
+
+        await controller.createCustomOrderSet('Second');
+        await controller.applyCustomOrder(const <CustomOrderEntry>[
+          CustomOrderEntry(
+            fileName: '__custom_text__',
+            songIndex: -1,
+            verseIndex: 0,
+            label: '[Text] Second',
+            customTextTitle: 'Second',
+            customTextBody: 'Second text',
+            customType: 'text',
+          ),
+        ], activate: true);
+        final String secondId = controller.activeCustomOrderSetId!;
+
+        await controller.setActiveCustomOrderSetById(firstId);
+        await controller.applyCustomOrder(const <CustomOrderEntry>[
+          CustomOrderEntry(
+            fileName: '__custom_text__',
+            songIndex: -1,
+            verseIndex: 0,
+            label: '[Text] First',
+            customTextTitle: 'First',
+            customTextBody: 'Updated text',
+            customType: 'text',
+          ),
+        ], activate: true);
+        await controller.setActiveCustomOrderSetById(secondId);
+
+        await controller.exportCustomOrderToDia(
+          autoSavePath,
+          customOrderSetId: firstId,
+        );
+
+        expect(controller.activeCustomOrderSetId, secondId);
+        expect(
+          await File(autoSavePath).readAsString(),
+          contains('line0=Updated text'),
+        );
+        expect(
+          await File(autoSavePath).readAsString(),
+          isNot(contains('Second text')),
+        );
+        final firstSet = controller.customOrderSets.singleWhere(
+          (set) => set.id == firstId,
+        );
+        final secondSet = controller.customOrderSets.singleWhere(
+          (set) => set.id == secondId,
+        );
+        expect(firstSet.diaFilePath, autoSavePath);
+        expect(firstSet.isModified, isFalse);
+        expect(secondSet.isModified, isTrue);
+      },
+    );
 
     group('custom order sound settings', () {
       test('persists slide-specific sound flags', () {

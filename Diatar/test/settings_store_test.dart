@@ -105,6 +105,16 @@ void main() {
     expect((await store.load()).projInverseKotta, isTrue);
   });
 
+  test('defaults and persists DIA automatic saving', () async {
+    SharedPreferences.setMockInitialValues(<String, Object>{});
+    final SettingsStore store = SettingsStore();
+
+    expect((await store.load()).diaAutoSaveEnabled, isFalse);
+    await store.save((await store.load()).copyWith(diaAutoSaveEnabled: true));
+
+    expect((await store.load()).diaAutoSaveEnabled, isTrue);
+  });
+
   test('persists control photo view state round-trip', () async {
     SharedPreferences.setMockInitialValues(<String, Object>{});
     final SettingsStore store = SettingsStore();

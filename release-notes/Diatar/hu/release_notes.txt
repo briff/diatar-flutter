@@ -1,5 +1,6 @@
 Új funkciók
 Diasor
+- Asztali rendszereken automatikusan menthetők a módosított diasorok a szerkesztő bezárásakor vagy a programból kilépéskor
 - Beállítható az egyszerre betölthető diasorok száma; a korlát elérésekor a legrégebben használt, gyorsbillentyű nélküli diasor törlődik
 
 Zene

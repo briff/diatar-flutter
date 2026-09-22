@@ -37,6 +37,7 @@ class AppSettings {
     this.diaExportPath = '',
     this.diaExportUri = '',
     this.diaExportFileName = '',
+    this.diaAutoSaveEnabled = false,
     this.projFontSize = 255,
     this.projTitleSize = 12,
     this.projLeftIndent = 2,
@@ -131,6 +132,7 @@ class AppSettings {
   final String diaExportPath;
   final String diaExportUri;
   final String diaExportFileName;
+  final bool diaAutoSaveEnabled;
   final int projFontSize;
   final int projTitleSize;
   final int projLeftIndent;
@@ -232,6 +234,7 @@ class AppSettings {
     String? diaExportPath,
     String? diaExportUri,
     String? diaExportFileName,
+    bool? diaAutoSaveEnabled,
     int? projFontSize,
     int? projTitleSize,
     int? projLeftIndent,
@@ -324,6 +327,7 @@ class AppSettings {
       diaExportPath: diaExportPath ?? this.diaExportPath,
       diaExportUri: diaExportUri ?? this.diaExportUri,
       diaExportFileName: diaExportFileName ?? this.diaExportFileName,
+      diaAutoSaveEnabled: diaAutoSaveEnabled ?? this.diaAutoSaveEnabled,
       projFontSize: projFontSize ?? this.projFontSize,
       projTitleSize: projTitleSize ?? this.projTitleSize,
       projLeftIndent: projLeftIndent ?? this.projLeftIndent,

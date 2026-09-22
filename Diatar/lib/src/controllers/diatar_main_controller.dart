@@ -241,6 +241,7 @@ class DiatarMainController extends ChangeNotifier {
   bool _highlightFullyRendered = false;
   bool showing = false;
   bool _exitRequested = false;
+  Future<void> Function()? _customOrderEditorAutoSave;
   bool loading = false;
   bool pendingOnboarding = false;
   AppSettings settings = const AppSettings();
@@ -445,6 +446,8 @@ class DiatarMainController extends ChangeNotifier {
           enabled: s.enabled,
           baseName: normalizedBaseName,
           sourceType: s.sourceType,
+          diaFilePath: s.diaFilePath,
+          embedImages: s.embedImages,
           cursor: s.cursor,
           isModified: s.isModified,
           lastUsed: s.lastUsed,
@@ -536,6 +539,8 @@ class DiatarMainController extends ChangeNotifier {
             enabled: s.enabled,
             baseName: s.baseName,
             sourceType: s.sourceType,
+            diaFilePath: s.diaFilePath,
+            embedImages: s.embedImages,
             cursor: s.cursor,
             isModified: s.isModified,
             lastUsed: s.lastUsed,
@@ -592,6 +597,14 @@ class DiatarMainController extends ChangeNotifier {
   /// A betöltött diasorok (saját diasorok) listája, csak olvashatóan.
   List<CustomOrderSet> get customOrderSets =>
       List<CustomOrderSet>.unmodifiable(_customOrderSets);
+
+  void registerCustomOrderEditorAutoSave(Future<void> Function() callback) {
+    _customOrderEditorAutoSave = callback;
+  }
+
+  void unregisterCustomOrderEditorAutoSave() {
+    _customOrderEditorAutoSave = null;
+  }
 
   /// Az éppen aktív diasor indexe a [customOrderSets] listában (-1 ha nincs).
   int get activeCustomOrderSetIndex => _activeOrderSetIndex;
@@ -3525,6 +3538,7 @@ class DiatarMainController extends ChangeNotifier {
     String path, {
     bool recordSave = true,
     bool embedImages = false,
+    String? customOrderSetId,
   }) async {
     final String safePath = path.toLowerCase().endsWith('.dia')
         ? path
@@ -3534,7 +3548,18 @@ class DiatarMainController extends ChangeNotifier {
     if (!await diaDir.exists()) {
       await diaDir.create(recursive: true);
     }
-    final List<CustomOrderEntry> exportable = _customOrder
+    final int targetSetIndex = customOrderSetId == null
+        ? _activeOrderSetIndex
+        : _customOrderSets.indexWhere(
+            (CustomOrderSet set) => set.id == customOrderSetId,
+          );
+    if (customOrderSetId != null && targetSetIndex < 0) {
+      throw StateError('Unknown custom order set: $customOrderSetId');
+    }
+    final List<CustomOrderEntry> sourceEntries = targetSetIndex >= 0
+        ? _customOrderSets[targetSetIndex].entries
+        : _customOrder;
+    final List<CustomOrderEntry> exportable = sourceEntries
         .map(normalizeEntry)
         .toList();
     final Map<String, Uint8List> embeddedImages = <String, Uint8List>{};
@@ -3635,7 +3660,11 @@ class DiatarMainController extends ChangeNotifier {
 
     await diaFile.writeAsString(out.toString(), encoding: utf8);
     if (recordSave) {
-      await markCustomOrderDiaExportSaved(safePath);
+      await markCustomOrderDiaExportSaved(
+        safePath,
+        embedImages: embedImages,
+        customOrderSetId: customOrderSetId,
+      );
     }
     return safePath;
   }
@@ -3643,7 +3672,17 @@ class DiatarMainController extends ChangeNotifier {
   Future<void> markCustomOrderDiaExportSaved(
     String path, {
     String? explicitName,
+    bool embedImages = false,
+    String? customOrderSetId,
   }) async {
+    final int targetSetIndex = customOrderSetId == null
+        ? _activeOrderSetIndex
+        : _customOrderSets.indexWhere(
+            (CustomOrderSet set) => set.id == customOrderSetId,
+          );
+    if (customOrderSetId != null && targetSetIndex < 0) {
+      throw StateError('Unknown custom order set: $customOrderSetId');
+    }
     String? cleanName;
     if (explicitName != null && explicitName.trim().isNotEmpty) {
       // Androidon a rendszer mentési ablakából a valódi fájlnevet kapjuk
@@ -3670,26 +3709,34 @@ class DiatarMainController extends ChangeNotifier {
     }
     if (cleanName != null) {
       final String normalizedName = cleanName.trim();
-      _lastImportedCustomOrderBaseName = normalizedName.isEmpty
-          ? null
-          : normalizedName;
-      if (_activeOrderSetIndex >= 0 &&
-          _activeOrderSetIndex < _customOrderSets.length) {
-        _customOrderSets[_activeOrderSetIndex] =
-            _customOrderSets[_activeOrderSetIndex].copyWith(
+      if (targetSetIndex >= 0 && targetSetIndex < _customOrderSets.length) {
+        _customOrderSets[targetSetIndex] = _customOrderSets[targetSetIndex]
+            .copyWith(
               name: normalizedName,
               baseName: normalizedName,
-              sourceType: null,
+              clearSourceType: true,
             );
       }
+      if (targetSetIndex == _activeOrderSetIndex) {
+        _lastImportedCustomOrderBaseName = normalizedName.isEmpty
+            ? null
+            : normalizedName;
+      }
     }
-    _customOrderSourceType = null;
-    if (_activeOrderSetIndex >= 0 &&
-        _activeOrderSetIndex < _customOrderSets.length) {
-      _customOrderSets[_activeOrderSetIndex] =
-          _customOrderSets[_activeOrderSetIndex].copyWith(isModified: false);
+    if (targetSetIndex == _activeOrderSetIndex) {
+      _customOrderSourceType = null;
     }
-    await _persistCurrentCustomOrder();
+    if (targetSetIndex >= 0 && targetSetIndex < _customOrderSets.length) {
+      _customOrderSets[targetSetIndex] = _customOrderSets[targetSetIndex]
+          .copyWith(
+            diaFilePath: path,
+            embedImages: embedImages,
+            isModified: false,
+          );
+    }
+    if (targetSetIndex == _activeOrderSetIndex) {
+      await _persistCurrentCustomOrder();
+    }
     await _persistAllSets();
     _setStatus('statusOrderSaved', <String, String>{'path': path});
     notifyListeners();
@@ -3905,7 +3952,9 @@ class DiatarMainController extends ChangeNotifier {
           _customOrderSets[_activeOrderSetIndex].copyWith(
             name: baseName ?? _customOrderSets[_activeOrderSetIndex].name,
             baseName: baseName,
-            sourceType: null,
+            clearSourceType: true,
+            diaFilePath: path,
+            embedImages: embeddedImageDirectory != null,
             cursor: _customOrder.isEmpty
                 ? -1
                 : _customOrderCursor.clamp(0, _customOrder.length - 1),
@@ -3926,6 +3975,8 @@ class DiatarMainController extends ChangeNotifier {
         enabled: true,
         baseName: baseName,
         sourceType: null,
+        diaFilePath: path,
+        embedImages: embeddedImageDirectory != null,
         isModified: false,
         lastUsed: DateTime.now().microsecondsSinceEpoch,
       );
@@ -5651,6 +5702,10 @@ class DiatarMainController extends ChangeNotifier {
       return;
     }
     _exitRequested = true;
+    final Future<void> Function()? autoSave = _customOrderEditorAutoSave;
+    if (settings.diaAutoSaveEnabled && autoSave != null) {
+      await autoSave();
+    }
     await _runExternalCommand(settings.externalCommandOnExit);
     try {
       await _mqttSender.clearRetainedMessages();

@@ -520,6 +520,7 @@
   "languageEnglish": "English",
   "blankImagePath": "Background image path",
   "diaExportFolderPath": "DIA export folder",
+  "diaAutoSave": "Automatic saving",
   "fileChoose": "Choose file",
   "blankImageDelete": "Delete background image",
   "openDtxFolder": "Open Diatár files",

@@ -150,6 +150,7 @@ class _DiatarSettingsSheetState extends State<DiatarSettingsSheet> {
   late int _appThemeMode;
   late String _appLanguage;
   late int _maxCustomOrderSets;
+  late bool _diaAutoSaveEnabled;
   late bool _homeShowHighlightControls;
   late bool _projHCenter;
   late bool _projVCenter;
@@ -221,6 +222,7 @@ class _DiatarSettingsSheetState extends State<DiatarSettingsSheet> {
     _szentirasApiKey = TextEditingController(text: s.szentirasApiKey);
     _blankPicPath = TextEditingController(text: s.blankPicPath);
     _diaExportPath = TextEditingController(text: s.diaExportPath);
+    _diaAutoSaveEnabled = s.diaAutoSaveEnabled;
     _picPlcPort = TextEditingController(
       text: widget.initialPicPlcConfiguration.port,
     );
@@ -2617,6 +2619,15 @@ class _DiatarSettingsSheetState extends State<DiatarSettingsSheet> {
                 setBoth(() {});
               },
             ),
+          if (_isDesktopPlatform())
+            SwitchListTile(
+              contentPadding: EdgeInsets.zero,
+              title: Text(l10n.diaAutoSave),
+              value: _diaAutoSaveEnabled,
+              onChanged: (bool value) {
+                setBoth(() => _diaAutoSaveEnabled = value);
+              },
+            ),
           const SizedBox(height: 16),
           const Divider(height: 1),
           const SizedBox(height: 16),
@@ -4240,6 +4251,7 @@ class _DiatarSettingsSheetState extends State<DiatarSettingsSheet> {
       dtxPath: '',
       blankPicPath: _blankPicPath.text.trim(),
       diaExportPath: _diaExportPath.text.trim(),
+      diaAutoSaveEnabled: _diaAutoSaveEnabled,
       projFontSize: _parseInt(
         _projFontSize.text,
         widget.initialSettings.projFontSize,

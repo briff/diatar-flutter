@@ -14,6 +14,8 @@ class CustomOrderSet {
     this.enabled = true,
     this.baseName,
     this.sourceType,
+    this.diaFilePath,
+    this.embedImages = false,
     this.cursor = -1,
     this.isModified = false,
     this.lastUsed = 0,
@@ -25,6 +27,8 @@ class CustomOrderSet {
   final bool enabled;
   final String? baseName;
   final String? sourceType;
+  final String? diaFilePath;
+  final bool embedImages;
   final bool isModified;
   final int lastUsed;
 
@@ -58,6 +62,9 @@ class CustomOrderSet {
     bool clearBaseName = false,
     String? sourceType,
     bool clearSourceType = false,
+    String? diaFilePath,
+    bool clearDiaFilePath = false,
+    bool? embedImages,
     int? cursor,
     bool clearCursor = false,
     bool? isModified,
@@ -70,6 +77,8 @@ class CustomOrderSet {
       enabled: enabled ?? this.enabled,
       baseName: clearBaseName ? null : (baseName ?? this.baseName),
       sourceType: clearSourceType ? null : (sourceType ?? this.sourceType),
+      diaFilePath: clearDiaFilePath ? null : (diaFilePath ?? this.diaFilePath),
+      embedImages: embedImages ?? this.embedImages,
       cursor: clearCursor ? -1 : (cursor ?? this.cursor),
       isModified: isModified ?? this.isModified,
       lastUsed: lastUsed ?? this.lastUsed,

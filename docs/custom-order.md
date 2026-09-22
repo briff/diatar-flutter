@@ -27,6 +27,13 @@ Az diasor összeállítása a **Diasor** ablakban érhető el.
 - **Betöltés** — korábban mentett `.dia` fájl megnyitása
 - Az `.dia` fájl formátum az INI fájlformátum
 
+Asztali rendszereken a **Beállítások > Énektárak és fájlok > Automatikus
+mentés** kapcsolóval kérhető, hogy a program a Diasor szerkesztő bezárásakor,
+illetve a programból nyitott szerkesztő mellett történő kilépéskor lemezre
+írja a módosított diasorokat. A korábban mentett vagy betöltött fájlokat a
+program felülírja; az új diasorokhoz mentési helyet és fájlnevet kér. A
+mentési ablak megszakításakor az adott diasor mentetlen marad.
+
 ## Betöltött diasorok száma
 
 A **Beállítások > Általános > Diasorok száma** szabályzóval 1 és 20 között

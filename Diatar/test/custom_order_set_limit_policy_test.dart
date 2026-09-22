@@ -70,10 +70,17 @@ void main() {
       id: 'set',
       name: 'Set',
       entries: <StoredCustomOrderEntry>[],
+      diaFilePath: r'C:\orders\set.dia',
+      embedImages: true,
       lastUsed: 1234,
     );
 
-    expect(StoredCustomOrderSet.fromJson(stored.toJson())?.lastUsed, 1234);
+    final StoredCustomOrderSet? restored = StoredCustomOrderSet.fromJson(
+      stored.toJson(),
+    );
+    expect(restored?.lastUsed, 1234);
+    expect(restored?.diaFilePath, r'C:\orders\set.dia');
+    expect(restored?.embedImages, isTrue);
     expect(
       StoredCustomOrderSet.fromJson(<String, Object?>{
         'id': 'legacy',

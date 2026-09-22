@@ -516,6 +516,7 @@
   "themeLight": "Világos",
   "blankImagePath": "Háttérkép útvonal",
   "diaExportFolderPath": "DIA mentési mappa",
+  "diaAutoSave": "Automatikus mentés",
   "fileChoose": "Fájl választása",
   "blankImageDelete": "Háttérkép törlése",
   "openDtxFolder": "Diatár állományok megnyitása",

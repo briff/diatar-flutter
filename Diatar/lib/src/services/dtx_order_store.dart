@@ -146,6 +146,8 @@ class StoredCustomOrderSet {
     this.enabled = true,
     this.baseName,
     this.sourceType,
+    this.diaFilePath,
+    this.embedImages = false,
     this.cursor = -1,
     this.isModified = false,
     this.lastUsed = 0,
@@ -157,6 +159,8 @@ class StoredCustomOrderSet {
   final bool enabled;
   final String? baseName;
   final String? sourceType;
+  final String? diaFilePath;
+  final bool embedImages;
   final bool isModified;
   final int lastUsed;
 
@@ -179,6 +183,12 @@ class StoredCustomOrderSet {
     }
     if (sourceType != null && sourceType!.trim().isNotEmpty) {
       out['sourceType'] = sourceType!.trim();
+    }
+    if (diaFilePath != null && diaFilePath!.trim().isNotEmpty) {
+      out['diaFilePath'] = diaFilePath!.trim();
+    }
+    if (embedImages) {
+      out['embedImages'] = true;
     }
     return out;
   }
@@ -207,6 +217,8 @@ class StoredCustomOrderSet {
     final Object? enabled = raw['enabled'];
     final Object? baseName = raw['baseName'];
     final Object? sourceType = raw['sourceType'];
+    final Object? diaFilePath = raw['diaFilePath'];
+    final Object? embedImages = raw['embedImages'];
     final Object? cursor = raw['cursor'];
     final Object? isModified = raw['isModified'];
     final Object? lastUsed = raw['lastUsed'];
@@ -217,6 +229,8 @@ class StoredCustomOrderSet {
       enabled: enabled is bool ? enabled : true,
       baseName: baseName is String ? baseName.trim() : null,
       sourceType: sourceType is String ? sourceType.trim() : null,
+      diaFilePath: diaFilePath is String ? diaFilePath.trim() : null,
+      embedImages: embedImages is bool ? embedImages : false,
       cursor: cursor is num ? cursor.toInt() : -1,
       isModified: isModified is bool ? isModified : false,
       lastUsed: lastUsed is num ? lastUsed.toInt() : 0,
