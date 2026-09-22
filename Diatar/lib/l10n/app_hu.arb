@@ -1441,6 +1441,7 @@
   "picPlcLedForward": "Előre irány",
   "picPlcLedBackward": "Hátra irány",
   "songOrder": "Énekrend",
+  "songOrderSlide": "Énekrend dia",
   "customOrderEmbedImagesTitle": "Képek beágyazása?",
   "customOrderEmbedImagesMessage": "A diasor képeket tartalmaz. Beágyazzuk őket a DIA fájlba, hogy az eredeti képfájlok nélkül is használható legyen?",
   "customOrderEmbedImagesNo": "Ne ágyazza be",

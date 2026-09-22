@@ -1623,7 +1623,7 @@ class _DiatarHomePageState extends State<DiatarHomePage> {
             PopupMenuItem<_ProjectionDisplayToggle>(
               value: _ProjectionDisplayToggle.songOrder,
               enabled: controller.customOrder.isNotEmpty,
-              child: Text(songOrderTitle),
+              child: Text(buttonContext.l10n.songOrderSlide),
             ),
             const PopupMenuDivider(),
             CheckedPopupMenuItem<_ProjectionDisplayToggle>(

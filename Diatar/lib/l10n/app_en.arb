@@ -1440,6 +1440,7 @@
   "picPlcLedForward": "Forward direction",
   "picPlcLedBackward": "Backward direction",
   "songOrder": "Song order",
+  "songOrderSlide": "Song order slide",
   "customOrderEmbedImagesTitle": "Embed images?",
   "customOrderEmbedImagesMessage": "This slide list contains images. Embed them in the DIA file so it can be used without the original image files?",
   "customOrderEmbedImagesNo": "Do not embed",
